@@ -9,12 +9,12 @@ import { styles } from "../../src/styles/More.styles";
 import {
   ActivityIndicator,
   Image,
+  SafeAreaView,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import ConfirmModal from "../../components/ui/ConfirmModal";
 import SuccessModal from "../../components/ui/SuccessModal";
 
@@ -63,7 +63,7 @@ const More = () => {
         {
           title: "Settings",
           icon: "settings-outline",
-          action: () => {}, //router.push("/(Routes)/Settings"),
+          action: () => router.push("/(Routes)/SettingsScreen"),
         },
         {
           title: "Notifications",
@@ -80,12 +80,12 @@ const More = () => {
         {
           title: "Help & Support",
           icon: "help-circle-outline",
-          action: () => {}, //router.push("/(Routes)/HelpCenterScreen"),
+          action: () => router.push("/(Routes)/HelpCenterScreen"),
         },
         {
           title: "Privacy Policy",
           icon: "document-text-outline",
-          action: () => {}, //router.push("/(Routes)/PrivacyPolicy"),
+          action: () => router.push("/(Routes)/PrivacyPolicy"),
         },
       ],
     },

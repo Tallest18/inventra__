@@ -1,7 +1,7 @@
 import { useProductsData } from "@/hooks/useProductsData";
 import { Product as UIProduct } from "@/src/api/dummyData/dummyProducts";
 import type { ApiUserInventoryItem } from "@/src/api/products";
-import { Feather } from "@expo/vector-icons";
+import { AntDesign, Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -17,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { formatCurrency } from "@/utils/formatters";
+import { Spinner } from "@/components/ui";
 import AddProductFlow from "../(Routes)/AddProductFlow";
 import { styles } from "../../src/styles/Inventory.styles";
 
@@ -56,6 +57,7 @@ const Inventory: React.FC = () => {
   const [filteredProducts, setFilteredProducts] = useState<UIProduct[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<"recent" | "name" | "name_desc">("recent");
   const [showAddProduct, setShowAddProduct] = useState<boolean>(false);
   const [filterCounts, setFilterCounts] = useState<FilterCounts>({
     all: 0,
@@ -64,15 +66,25 @@ const Inventory: React.FC = () => {
     expiring: 0,
   });
 
+  const toggleSortOrder = () => {
+    setSortOrder((prev) => {
+      if (prev === "recent") return "name";
+      if (prev === "name") return "name_desc";
+      return "recent";
+    });
+  };
+
   // TanStack Query: fetch user inventory from API
   const {
     userInventory: userInventoryData,
     loadingInventory: loading,
+    fetchingInventory: searching,
     // error: not exposed in unified hook, handle as needed
   } = useProductsData({
     search: searchQuery.trim() || undefined,
     page: 0,
     page_size: 50,
+    sort: sortOrder,
   });
 
   // Map API product to UI Product type
@@ -138,10 +150,11 @@ const Inventory: React.FC = () => {
     }
   }, [userInventoryData]);
 
-  // Main filtering logic, including focusProductId
+  // Main filtering logic, including focusProductId, searchQuery and sortOrder
   useEffect(() => {
     let filtered = [...products];
 
+    // 1. Stock Status Filter
     if (activeFilter === "inStock") {
       filtered = filtered.filter((p) => p.unitsInStock > 0);
     } else if (activeFilter === "outOfStock") {
@@ -157,6 +170,28 @@ const Inventory: React.FC = () => {
       });
     }
 
+    // 2. Local Search Filter
+    if (searchQuery.trim()) {
+      const term = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter((p) => {
+        const name = p.name?.toLowerCase() || "";
+        const category = p.category?.toLowerCase() || "";
+        const barcode = p.barcode?.toLowerCase() || "";
+        return name.includes(term) || category.includes(term) || barcode.includes(term);
+      });
+    }
+
+    // 3. Sorting
+    if (sortOrder === "name") {
+      filtered.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+    } else if (sortOrder === "name_desc") {
+      filtered.sort((a, b) => b.name.localeCompare(a.name, undefined, { sensitivity: "base" }));
+    } else {
+      // recent (default)
+      filtered.sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime());
+    }
+
+    // 4. Arrange focus product first if matches
     if (focusProductId) {
       const idx = filtered.findIndex((p) => p.id === focusProductId);
       if (idx > -1) {
@@ -166,7 +201,7 @@ const Inventory: React.FC = () => {
     }
 
     setFilteredProducts(filtered);
-  }, [products, activeFilter, searchQuery, focusProductId]);
+  }, [products, activeFilter, searchQuery, focusProductId, sortOrder]);
 
   const handleSearchChange = (text: string): void => setSearchQuery(text);
   const clearSearch = (): void => setSearchQuery("");
@@ -343,7 +378,7 @@ const Inventory: React.FC = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#1155CC" />
+          <Spinner size={48} color="#1155CC" />
           <Text style={styles.loadingText}>Loading inventory...</Text>
         </View>
       </SafeAreaView>
@@ -371,29 +406,44 @@ const Inventory: React.FC = () => {
             placeholderTextColor="#999"
           />
         </View>
-        <TouchableOpacity style={styles.filterButton} activeOpacity={0.7}>
-          <Feather name="sliders" size={moderateScale(20)} color="#333" />
+        <TouchableOpacity
+          style={styles.filterButton}
+          activeOpacity={0.7}
+          onPress={toggleSortOrder}
+        >
+          <AntDesign
+            name={sortOrder === "name" ? "sort-ascending" : "sort-descending"}
+            size={moderateScale(20)}
+            color={sortOrder === "recent" ? "#888" : "#1155CC"}
+          />
         </TouchableOpacity>
       </View>
 
       {/* Filter Tabs */}
       {products.length > 0 && renderFilterTabs()}
 
-      {/* Products Grid */}
+      {/* Products Grid — replaced by a spinner while (re)loading, so only this
+          area shows the loading state; the search bar, filters and tabs stay. */}
       <ScrollView
         style={styles.productsContainer}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <View style={styles.productsGrid}>
-          {products.length === 0 && !loading
-            ? renderEmptyState()
-            : filteredProducts.length === 0 && searchQuery.length > 0
-              ? renderSearchEmptyState()
-              : filteredProducts.length === 0 && activeFilter !== "all"
-                ? renderFilterEmptyState()
-                : filteredProducts.map((product) => renderProductCard(product))}
-        </View>
+        {searching ? (
+          <View style={styles.listLoading}>
+            <Spinner size={40} color="#1155CC" />
+          </View>
+        ) : (
+          <View style={styles.productsGrid}>
+            {products.length === 0 && !loading
+              ? renderEmptyState()
+              : filteredProducts.length === 0 && searchQuery.length > 0
+                ? renderSearchEmptyState()
+                : filteredProducts.length === 0 && activeFilter !== "all"
+                  ? renderFilterEmptyState()
+                  : filteredProducts.map((product) => renderProductCard(product))}
+          </View>
+        )}
         <View style={styles.bottomPadding} />
       </ScrollView>
 

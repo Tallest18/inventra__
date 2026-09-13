@@ -77,7 +77,7 @@ const HelpCenterScreen = () => {
       <ScrollView style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.push("./SettingsScreen")}>
+          <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={24} color="#333" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Help Center</Text>

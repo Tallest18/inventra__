@@ -1,14 +1,27 @@
 // src/api/endpoints.ts
 
-// AUTH
-export const AUTH_LOGOUT = "/api/auth/logout/";
+// AUTH — paths are relative to the client's `/api` baseURL.
+export const AUTH_BUSINESS_TYPES = "/auth/business-types/";
+export const AUTH_CHANGE_PIN = "/auth/change-pin/";
+export const AUTH_CHECK_PHONE = "/auth/check-phone/";
+export const AUTH_COMPLETE_REGISTRATION = "/auth/complete-registration/";
+export const AUTH_FORGOT_PIN = "/auth/forgot-pin/";
+export const AUTH_LOGOUT = "/auth/logout/";
+export const AUTH_PIN_LOGIN = "/auth/pin-login/";
 export const AUTH_PROFILE = "/auth/profile/";
-export const AUTH_REGISTER = "/api/auth/register/";
-export const AUTH_REQUEST_OTP = "/api/auth/request-otp/";
-export const AUTH_RESEND_OTP = "/api/auth/resend-otp/";
-export const AUTH_VERIFY_OTP = "/api/auth/verify-otp/";
-export const AUTH_TOKEN = "/api/token/";
-export const AUTH_TOKEN_REFRESH = "/api/token/refresh/";
+export const AUTH_REGISTER_NUMBER = "/auth/register-number/";
+export const AUTH_RESEND_OTP = "/auth/resend-otp/";
+export const AUTH_RESET_PIN = "/auth/reset-pin/";
+export const AUTH_START_TRIAL = "/auth/start-trial/";
+export const AUTH_VERIFY_OTP = "/auth/verify-otp/";
+export const AUTH_TOKEN_REFRESH = "/token/refresh/";
+
+// SUBSCRIPTION
+export const SUBSCRIPTION = "/auth/subscription/";
+export const SUBSCRIPTION_PAYSTACK_INITIALIZE =
+  "/auth/subscription/paystack/initialize/";
+export const SUBSCRIPTION_PAYSTACK_VERIFY =
+  "/auth/subscription/paystack/verify/";
 
 // PRODUCTS
 export const PRODUCTS_CATEGORIES = "/products/categories/";
@@ -26,9 +39,9 @@ export const PRODUCTS_FINANCE_STOCK_RECOMMENDATIONS =
 export const PRODUCTS_FINANCE_SUMMARY = "/products/finance/summary";
 export const PRODUCTS_FINANCE_TOP_PRODUCTS = "/products/finance/top-products";
 export const PRODUCTS_FINANCE_TRENDS = "/products/finance/trends";
-export const PRODUCTS_ITEMS = "/products/items/";
+export const PRODUCTS_ITEMS = "/products/global-products/";
 export const PRODUCTS_ITEM = (id: string | number) =>
-  `/products/items/${id}/`;
+  `/products/global-products/${id}/`;
 
 export const PRODUCTS_SUPPLIERS = "/api/products/suppliers/";
 export const PRODUCTS_SUPPLIER = (id: string | number) =>

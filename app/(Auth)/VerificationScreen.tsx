@@ -1,278 +1,310 @@
 // app/(Auth)/VerificationScreen.tsx
-import { resendOtp, saveAuthTokens, verifyOtp } from "@/src/api";
-import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
-  StatusBar,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { styles } from "./VerificationScreen.style";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { AuthButton } from "@/components/auth/AuthButton";
+import { AuthScaffold } from "@/components/auth/AuthScaffold";
+import { AUTH_COLORS, AUTH_FONTS } from "@/components/auth/authTheme";
+import {
+  parseApiError,
+  resendOtp,
+  saveAuthTokens,
+  verifyOtp,
+} from "@/src/api";
+import { moderateScale, scale, verticalScale } from "@/utils/scaling";
+
+const CODE_LENGTH = 6;
+const RESEND_SECONDS = 60;
+
+/**
+ * `register` — new account or an account that never finished onboarding.
+ * `reset`    — forgot-PIN, so the verified session is carried to reset-pin.
+ */
+type VerificationMode = "register" | "reset";
 
 const VerificationScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
-    phoneNumber: string;
+    phone: string;
+    maskedPhone: string;
     verificationId: string;
-    mockCode?: string;
+    mode?: VerificationMode;
   }>();
 
-  const phoneNumber = params.phoneNumber ?? "";
+  const phone = params.phone ?? "";
+  const maskedPhone = params.maskedPhone ?? phone;
+  const mode: VerificationMode = params.mode === "reset" ? "reset" : "register";
+
   const [verificationId, setVerificationId] = useState(
     params.verificationId ?? "",
   );
-  const [mockCode, setMockCode] = useState<string | null>(
-    params.mockCode || null,
-  );
-
-  const [code, setCode] = useState(["", "", "", "", "", ""]);
+  const [digits, setDigits] = useState<string[]>(Array(CODE_LENGTH).fill(""));
   const [loading, setLoading] = useState(false);
-  const [resendTimer, setResendTimer] = useState(45);
-  const [resendLoading, setResendLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
+  const [error, setError] = useState<string | null>(null);
 
-  const inputRefs = useRef<TextInput[]>([]);
+  const inputs = useRef<(TextInput | null)[]>([]);
+  const code = digits.join("");
 
   useEffect(() => {
-    if (resendTimer > 0) {
-      const timer = setTimeout(() => setResendTimer((p) => p - 1), 1000);
-      return () => clearTimeout(timer);
+    if (secondsLeft <= 0) return;
+    const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [secondsLeft]);
+
+  const handleChange = (value: string, index: number) => {
+    const clean = value.replace(/\D/g, "");
+    if (error) setError(null);
+
+    // Pasting the whole code lands in one box — spread it across the row.
+    if (clean.length > 1) {
+      const next = Array(CODE_LENGTH).fill("");
+      clean
+        .slice(0, CODE_LENGTH)
+        .split("")
+        .forEach((digit, i) => {
+          next[i] = digit;
+        });
+      setDigits(next);
+      inputs.current[Math.min(clean.length, CODE_LENGTH - 1)]?.focus();
+      return;
     }
-  }, [resendTimer]);
 
-  const handleCodeChange = (value: string, index: number) => {
-    if (value && !/^\d$/.test(value)) return;
-
-    const newCode = [...code];
-    newCode[index] = value;
-    setCode(newCode);
-
-    // Clear error when typing again
-    if (errorMessage) setErrorMessage(null);
-
-    if (value && index < 5) {
-      inputRefs.current[index + 1]?.focus();
-    }
-
-    // Auto verify when all digits are filled
-    if (newCode.every((d) => d !== "")) {
-      verifyCode(newCode.join(""));
-    }
+    const next = [...digits];
+    next[index] = clean;
+    setDigits(next);
+    if (clean && index < CODE_LENGTH - 1) inputs.current[index + 1]?.focus();
   };
 
   const handleKeyPress = (key: string, index: number) => {
-    if (key === "Backspace" || key === "Delete") {
-      if (!code[index] && index > 0) {
-        inputRefs.current[index - 1]?.focus();
-      } else {
-        const newCode = [...code];
-        newCode[index] = "";
-        setCode(newCode);
-      }
+    if (key !== "Backspace") return;
+    if (digits[index]) return; // the change handler already clears it
+    if (index > 0) {
+      const next = [...digits];
+      next[index - 1] = "";
+      setDigits(next);
+      inputs.current[index - 1]?.focus();
     }
   };
 
-  const verifyCode = async (verificationCode: string) => {
-    if (loading || !verificationId) return;
+  const handleVerify = async () => {
+    if (code.length !== CODE_LENGTH || loading || !verificationId) return;
 
     setLoading(true);
+    setError(null);
 
     try {
-      const result = await verifyOtp(verificationId, verificationCode);
+      const result = await verifyOtp(verificationId, code);
       await saveAuthTokens(result.tokens);
 
-      setTimeout(() => {
-        if (result.is_new_user) {
-          router.replace("/(Auth)/BusinessSelectionScreen");
-        } else {
-          router.replace("/(Main)/Home");
-        }
-      }, 100);
-    } catch (error: any) {
-      console.error("Verification failed:", error);
-      const message =
-        error?.response?.data?.error ||
-        error?.response?.data?.detail ||
-        "Invalid verification code. Please try again.";
-      setErrorMessage(message); // show inline error
-      setCode(["", "", "", "", "", ""]);
-      inputRefs.current[0]?.focus();
+      if (mode === "reset") {
+        // verify-otp signs us in, but the PIN still has to be replaced.
+        router.replace({
+          pathname: "/(Auth)/CreatePinScreen",
+          params: { mode: "reset", verificationId, phone },
+        });
+        return;
+      }
+
+      if (result.needs_onboarding) {
+        router.replace({
+          pathname: "/(Auth)/BusinessSelectionScreen",
+          params: { phone },
+        });
+        return;
+      }
+
+      // Already onboarded (re-verified an existing account).
+      router.replace("/(Main)/Home");
+    } catch (err: any) {
+      setError(parseApiError(err, "Invalid code. Please try again.").message);
+      setDigits(Array(CODE_LENGTH).fill(""));
+      inputs.current[0]?.focus();
     } finally {
       setLoading(false);
     }
   };
 
-  const resendCode = async () => {
-    if (resendTimer > 0 || resendLoading || !phoneNumber) return;
+  const handleResend = async () => {
+    if (secondsLeft > 0 || resending || !verificationId) return;
 
-    setResendLoading(true);
+    setResending(true);
+    setError(null);
 
     try {
-      const resp = await resendOtp(verificationId);
-      setVerificationId(resp.verification_id);
-      setMockCode(resp.code || null);
-      setResendTimer(45);
-      setErrorMessage(null);
-    } catch (error: any) {
-      console.error("Error resending code:", error);
-      const message =
-        error?.response?.data?.error ||
-        error?.response?.data?.detail ||
-        "Failed to resend verification code.";
-      setErrorMessage(message);
+      const result = await resendOtp(verificationId);
+      // The old id is burned by the resend — everything from here uses the new one.
+      setVerificationId(result.verification_id);
+      setDigits(Array(CODE_LENGTH).fill(""));
+      setSecondsLeft(RESEND_SECONDS);
+      inputs.current[0]?.focus();
+    } catch (err: any) {
+      setError(parseApiError(err, "Couldn't resend the code.").message);
     } finally {
-      setResendLoading(false);
+      setResending(false);
     }
   };
 
-  const clearAllInputs = () => {
-    setCode(["", "", "", "", "", ""]);
-    setErrorMessage(null);
-    inputRefs.current[0]?.focus();
-  };
-
-  const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace("/(Auth)/WelcomeScreen");
-    }
-  };
+  const timer = `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={0}
+    <AuthScaffold
+      icon="chatbubble-outline"
+      title="Verify your number"
+      subtitle={`Enter the 6-digit code sent to ${maskedPhone}.`}
+      sheetStyle={{ paddingHorizontal: 0 }}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#1155CC" />
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + verticalScale(24) },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.caption}>
+          Code sent to <Text style={styles.captionStrong}>{maskedPhone}</Text> ·
+          Type in the code sent to your inbox.
+        </Text>
 
-      <View style={styles.topSection} />
-
-      <View style={styles.bottomSection}>
-        <View style={styles.handleBar} />
-
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.formContainer}>
-            <Text style={styles.title}>Confirmation Code</Text>
-            <Text style={styles.subtitle}>
-              Enter the 6-digit code we sent to {phoneNumber}
-            </Text>
-
-            <View style={styles.codeContainer}>
-              {code.map((digit, index) => (
-                <TextInput
-                  key={index}
-                  ref={(ref) => {
-                    if (ref) inputRefs.current[index] = ref;
-                  }}
-                  style={[
-                    styles.codeInput,
-                    digit ? styles.codeInputFilled : null,
-                    loading && styles.codeInputDisabled,
-                  ]}
-                  value={digit}
-                  onChangeText={(value) => handleCodeChange(value, index)}
-                  onKeyPress={({ nativeEvent: { key } }) =>
-                    handleKeyPress(key, index)
-                  }
-                  keyboardType="numeric"
-                  maxLength={1}
-                  selectTextOnFocus
-                  autoFocus={index === 0}
-                  editable={!loading}
-                  returnKeyType="next"
-                />
-              ))}
-            </View>
-
-            {/* Inline error message */}
-            {errorMessage && (
-              <Text style={{ color: "red", marginTop: 8, textAlign: "center" }}>
-                {errorMessage}
-              </Text>
-            )}
-
-            <TouchableOpacity
+        <View style={styles.codeRow}>
+          {digits.map((digit, index) => (
+            <TextInput
+              key={index}
+              ref={(ref) => {
+                inputs.current[index] = ref;
+              }}
               style={[
-                styles.resendContainer,
-                (resendTimer > 0 || resendLoading) && styles.disabled,
+                styles.codeBox,
+                !!digit && styles.codeBoxFilled,
+                !!error && styles.codeBoxError,
               ]}
-              onPress={resendCode}
-              disabled={resendTimer > 0 || resendLoading}
-            >
-              <Text
-                style={[
-                  styles.resendText,
-                  (resendTimer > 0 || resendLoading) && styles.disabledText,
-                ]}
-              >
-                {resendLoading
-                  ? "Sending..."
-                  : resendTimer > 0
-                    ? `Didn't get the code? Resend in ${resendTimer}s`
-                    : "Didn't get the code? Resend now"}
-              </Text>
-            </TouchableOpacity>
+              value={digit}
+              onChangeText={(value) => handleChange(value, index)}
+              onKeyPress={({ nativeEvent }) =>
+                handleKeyPress(nativeEvent.key, index)
+              }
+              keyboardType="number-pad"
+              maxLength={CODE_LENGTH}
+              selectTextOnFocus
+              editable={!loading}
+              autoFocus={index === 0}
+              textAlign="center"
+            />
+          ))}
+        </View>
 
-            <View style={styles.actionsContainer}>
-              {mockCode ? (
-                <Text style={styles.mockCodeText}>
-                  Test code (mock mode):{" "}
-                  <Text style={styles.mockCodeValue}>{mockCode}</Text>
-                </Text>
-              ) : null}
-              <View
-                style={{
-                  flexDirection: "row",
-                  marginTop: 10,
-                  justifyContent: "space-between",
-                }}
-              >
-                <TouchableOpacity
-                  style={[styles.backButton, loading && styles.disabled]}
-                  onPress={handleGoBack}
-                  disabled={loading}
-                >
-                  <Ionicons name="arrow-back" size={20} color="#1155CC" />
-                  <Text style={styles.backText}>Back</Text>
-                </TouchableOpacity>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
-                <TouchableOpacity
-                  style={styles.clearButton}
-                  onPress={clearAllInputs}
-                  disabled={loading}
-                >
-                  <Text
-                    style={[styles.clearText, loading && styles.disabledText]}
-                  >
-                    Clear all
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </ScrollView>
+        <TouchableOpacity
+          style={styles.resend}
+          onPress={handleResend}
+          disabled={secondsLeft > 0 || resending}
+          activeOpacity={0.7}
+        >
+          {resending ? (
+            <Text style={styles.resendText}>Sending a new code…</Text>
+          ) : secondsLeft > 0 ? (
+            <Text style={styles.resendText}>
+              Resend code in <Text style={styles.resendTimer}>{timer}</Text>
+            </Text>
+          ) : (
+            <Text style={[styles.resendText, styles.resendActive]}>
+              Resend code
+            </Text>
+          )}
+        </TouchableOpacity>
 
-        {loading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#1155CC" />
-            <Text style={styles.loadingText}>Verifying...</Text>
-          </View>
-        )}
-      </View>
-    </KeyboardAvoidingView>
+        <AuthButton
+          label="Verify Code"
+          onPress={handleVerify}
+          loading={loading}
+          disabled={code.length !== CODE_LENGTH}
+        />
+      </ScrollView>
+    </AuthScaffold>
   );
 };
+
+const styles = StyleSheet.create({
+  content: {
+    paddingHorizontal: scale(24),
+    paddingTop: verticalScale(4),
+    flexGrow: 1,
+  },
+  caption: {
+    fontSize: moderateScale(13),
+    lineHeight: moderateScale(20),
+    fontFamily: AUTH_FONTS.regular,
+    color: AUTH_COLORS.textMuted,
+  },
+  captionStrong: {
+    fontFamily: AUTH_FONTS.bold,
+    color: AUTH_COLORS.text,
+  },
+  codeRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: verticalScale(22),
+  },
+  codeBox: {
+    width: "14.5%",
+    height: verticalScale(54),
+    borderRadius: moderateScale(12),
+    backgroundColor: AUTH_COLORS.field,
+    borderWidth: 1.5,
+    borderColor: "transparent",
+    fontSize: moderateScale(20),
+    fontFamily: AUTH_FONTS.bold,
+    color: AUTH_COLORS.text,
+    padding: 0,
+    // Android ignores the textAlign *prop* on a TextInput often enough that the
+    // digits render flush left; setting it in the style is what actually sticks,
+    // and includeFontPadding is what centres them vertically.
+    textAlign: "center",
+    textAlignVertical: "center",
+    includeFontPadding: false,
+  },
+  codeBoxFilled: {
+    backgroundColor: AUTH_COLORS.fieldActive,
+    borderColor: AUTH_COLORS.brand,
+  },
+  codeBoxError: { borderColor: AUTH_COLORS.danger },
+  error: {
+    marginTop: verticalScale(12),
+    textAlign: "center",
+    fontSize: moderateScale(12.5),
+    lineHeight: moderateScale(18),
+    fontFamily: AUTH_FONTS.medium,
+    color: AUTH_COLORS.danger,
+  },
+  resend: {
+    alignSelf: "center",
+    paddingVertical: verticalScale(16),
+  },
+  resendText: {
+    fontSize: moderateScale(13.5),
+    fontFamily: AUTH_FONTS.regular,
+    color: AUTH_COLORS.textMuted,
+  },
+  resendTimer: {
+    color: AUTH_COLORS.brand,
+    fontFamily: AUTH_FONTS.bold,
+  },
+  resendActive: {
+    color: AUTH_COLORS.brand,
+    fontFamily: AUTH_FONTS.semibold,
+  },
+});
 
 export default VerificationScreen;

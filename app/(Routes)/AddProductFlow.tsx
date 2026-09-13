@@ -35,6 +35,7 @@ const AddProductFlow: React.FC<AddProductFlowProps> = ({
     updateFormData,
     resetForm,
     populateFromProduct,
+    validateStep,
     handleSaveProduct,
     setShowSuccessModal,
   } = useAddProductForm(onSaveProduct, {
@@ -145,6 +146,7 @@ const AddProductFlow: React.FC<AddProductFlowProps> = ({
               : "New Product"
         }
         initialStep={startStep}
+        validateStep={validateStep}
       />
 
       <SuccessModal

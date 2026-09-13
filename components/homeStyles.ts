@@ -85,10 +85,11 @@ export const homeStyles = StyleSheet.create({
     backgroundColor: "#eee",
   },
   salesBox: {
-    // backgroundColor: "#1155CC", // REMOVE this line for gradient
     borderRadius: moderateScale(12),
-    padding: scale(16),
+    padding: scale(18),
     margin: scale(20),
+    minHeight: verticalScale(140),
+    justifyContent: "space-between",
   },
   salesTop: {
     flexDirection: "row",
@@ -155,7 +156,8 @@ export const homeStyles = StyleSheet.create({
     backgroundColor: "white",
     justifyContent: "space-between",
     borderRadius: moderateScale(12),
-    padding: scale(10),
+    padding: scale(14),
+    minHeight: verticalScale(90),
   },
   infoLabel: {
     color: "#6E6E6E",
@@ -168,6 +170,7 @@ export const homeStyles = StyleSheet.create({
     fontSize: getFontSize(moderateScale(20)),
     fontFamily: "DMSans_700Bold",
     marginTop: verticalScale(8),
+    color: "#1C1C1C", // FIX: specify explicit color to prevent dark-mode invisible white-on-white text
   },
   transactionRow: {
     flexDirection: "row",

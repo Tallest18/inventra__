@@ -16,8 +16,7 @@
 
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "INVENTRA2.W",
-      "googleServicesFile": "./GoogleService-info.plist",
+      "bundleIdentifier": "com.wonderfall.inventra",
       "icon": "./assets/images/logo.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -32,14 +31,13 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "INVENTRA2.W",
-      "googleServicesFile": "./google-services.json",
+      "package": "com.wonderfall.inventra",
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ],
       "newArchEnabled": false,
-      "softwareKeyboardLayoutMode": "pan"
+      "softwareKeyboardLayoutMode": "resize"
     },
 
     "web": {
@@ -52,7 +50,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splashScreen.png",
+          "image": "./assets/images/logo.png",
           "resizeMode": "contain",
           "backgroundColor": "#1155CC"
         }

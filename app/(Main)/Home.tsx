@@ -11,6 +11,8 @@ import { useHomeData } from "@/hooks/useHomeData";
 import { getUserInventoryItem } from "@/src/api";
 import ActionButtons from "../../components/ActionButtons";
 
+// The trial / expiry sheet is owned by SubscriptionWatcher in the root layout
+// so it can surface on any screen, not just this one.
 const Home = () => {
   const { openAddProduct, openRestockProduct } = useContext(AddProductContext);
   const { inventory, notifications, userData } = useHomeData();

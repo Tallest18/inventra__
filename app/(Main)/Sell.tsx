@@ -1,14 +1,15 @@
 import AllProducts from "@/components/sell/allProducts";
 import SalesHistory, { Sale } from "@/components/sell/saleHistory";
-import ConfirmModal from "@/components/ui/ConfirmModal";
+import { useToast } from "@/components/ui/useToast";
 import { useSales } from "@/hooks/useSales";
 import { ApiUserInventoryItem, listUserInventory } from "@/src/api";
 import type { ApiSale } from "@/src/api/sales";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import Feather from "@expo/vector-icons/Feather";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
+import useCartStore from "@/stores/cartStore";
 import {
   ActivityIndicator,
   SafeAreaView,
@@ -100,29 +101,28 @@ const Sell: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  // "recent" = newest first (default), "name" = alphabetical A-Z
-  const [sortOrder, setSortOrder] = useState<"recent" | "name">("recent");
-  const { data: salesData, isLoading: salesLoading } = useSales({
+  const [sortOrder, setSortOrder] = useState<"recent" | "name" | "name_desc">("recent");
+  const {
+    data: salesData,
+    isLoading: salesLoading,
+    isFetching: salesSearching,
+  } = useSales({
     search: searchQuery.trim() || undefined,
     page: 0,
     page_size: 25,
   });
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [modalTitle, setModalTitle] = useState("");
-  const [modalSubtitle, setModalSubtitle] = useState("");
-
-  const showModal = (title: string, subtitle = "") => {
-    setModalTitle(title);
-    setModalSubtitle(subtitle);
-    setModalVisible(true);
-  };
+  const { cart, setCart } = useCartStore();
+  const { showToast, toastElement } = useToast();
 
   useEffect(() => {
     if (params.tab === "history") setActiveTab("history");
   }, [params.tab]);
 
-  const { data: inventoryData, isLoading: productsLoading } = useQuery({
+  const {
+    data: inventoryData,
+    isLoading: productsLoading,
+    isFetching: productsSearching,
+  } = useQuery({
     queryKey: ["user-inventory", searchQuery.trim() || undefined, undefined, 0, 50, sortOrder],
     queryFn: () =>
       listUserInventory({
@@ -131,6 +131,9 @@ const Sell: React.FC = () => {
         page_size: 50,
         sort: sortOrder,
       }),
+    // Keep prior results visible while a new search fetches, so the search bar
+    // and tabs stay put instead of the whole page flashing a loader.
+    placeholderData: keepPreviousData,
   });
 
   const products = useMemo<Product[]>(() => {
@@ -140,6 +143,10 @@ const Sell: React.FC = () => {
     if (sortOrder === "name") {
       return results.sort((a, b) =>
         a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+      );
+    } else if (sortOrder === "name_desc") {
+      return results.sort((a, b) =>
+        b.name.localeCompare(a.name, undefined, { sensitivity: "base" }),
       );
     }
     return results.sort(
@@ -163,7 +170,7 @@ const Sell: React.FC = () => {
     const product = products.find((p) => p.id === id);
     if (!product) return;
     if (product.unitsInStock <= 0) {
-      showModal("Out of Stock", "This product is currently out of stock.");
+      showToast(`${product.name} is out of stock`, "warning");
       return;
     }
     setCart((prev) => {
@@ -177,9 +184,9 @@ const Sell: React.FC = () => {
     if (!product) return;
     const cartItem = cart.find((item) => item.id === id);
     if ((cartItem?.quantity ?? 0) >= product.unitsInStock) {
-      showModal(
-        "Stock Limit",
-        `Only ${product.unitsInStock} units available in stock.`,
+      showToast(
+        `Only ${product.unitsInStock} units of ${product.name} in stock`,
+        "warning",
       );
       return;
     }
@@ -205,6 +212,23 @@ const Sell: React.FC = () => {
   const totalCartItems = cart.reduce((t, item) => t + item.quantity, 0);
 
   const viewCart = () => {
+    // Re-check live stock before leaving this screen — the inventory may have
+    // been refetched (or sold down elsewhere) after items were added, so guard
+    // the navigation rather than letting a stale cart reach checkout.
+    for (const item of cart) {
+      const product = products.find((p) => p.id === item.id);
+      const stock = product?.unitsInStock ?? item.product?.unitsInStock ?? 0;
+      const name = product?.name ?? item.product?.name ?? "This product";
+      if (stock <= 0) {
+        showToast(`${name} is out of stock — remove it to continue`, "warning");
+        return;
+      }
+      if (item.quantity > stock) {
+        showToast(`Only ${stock} units of ${name} in stock`, "warning");
+        return;
+      }
+    }
+
     router.push({
       pathname: "/(Routes)/Cart" as any,
       params: {
@@ -271,13 +295,17 @@ const Sell: React.FC = () => {
           style={styles.filterButton}
           activeOpacity={0.7}
           onPress={() =>
-            setSortOrder((prev) => (prev === "recent" ? "name" : "recent"))
+            setSortOrder((prev) => {
+              if (prev === "recent") return "name";
+              if (prev === "name") return "name_desc";
+              return "recent";
+            })
           }
         >
           <AntDesign
             name={sortOrder === "name" ? "sort-ascending" : "sort-descending"}
             size={moderateScale(20)}
-            color="#333"
+            color={sortOrder === "recent" ? "#888" : "#1155CC"}
           />
         </TouchableOpacity>
       </View>
@@ -323,8 +351,13 @@ const Sell: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Tab content — each component owns its own rendering */}
-      {activeTab === "all" ? (
+      {/* Tab content — a spinner replaces just this list area while (re)loading,
+          so the search bar, filters and tabs above stay put. */}
+      {(activeTab === "history" ? salesSearching : productsSearching) ? (
+        <View style={styles.listLoading}>
+          <ActivityIndicator size="large" color="#1155CC" />
+        </View>
+      ) : activeTab === "all" ? (
         <AllProducts
           products={products}
           filteredProducts={filteredProducts}
@@ -353,15 +386,7 @@ const Sell: React.FC = () => {
         </View>
       )}
 
-      <ConfirmModal
-        visible={modalVisible}
-        title={modalTitle}
-        subtitle={modalSubtitle}
-        confirmText="OK"
-        singleButton
-        onConfirm={() => setModalVisible(false)}
-        onCancel={() => setModalVisible(false)}
-      />
+      {toastElement}
     </SafeAreaView>
   );
 };

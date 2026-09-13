@@ -5,8 +5,11 @@ import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Dimensions,
+    KeyboardAvoidingView,
     Modal,
+    Platform,
     SafeAreaView,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -37,6 +40,7 @@ interface Props {
   onScanBarcode?: () => void;
   title?: string;
   initialStep?: number;
+  validateStep: (step: number) => boolean;
 }
 
 const ProductFormModal: React.FC<Props> = ({
@@ -49,6 +53,7 @@ const ProductFormModal: React.FC<Props> = ({
   onScanBarcode,
   title,
   initialStep = 0,
+  validateStep,
 }) => {
   const insets = useSafeAreaInsets();
   const [currentStep, setCurrentStep] = useState(0);
@@ -77,39 +82,6 @@ const ProductFormModal: React.FC<Props> = ({
     if (visible) setCurrentStep(initialStep);
   }, [visible, initialStep]);
 
-  const validateStep = (step: number): boolean => {
-    if (step === 0) {
-      return !!(formData.productName && formData.category);
-    }
-    if (step === 1) {
-      if (formData.quantityType === "Single Items") {
-        return !!(
-          formData.numberOfItems &&
-          formData.costPrice &&
-          formData.sellingPrice
-        );
-      }
-      if (formData.quantityType === "Carton") {
-        return !!(
-          formData.unitsPerCarton &&
-          formData.numberOfCartons &&
-          formData.costPricePerCarton &&
-          formData.sellingPricePerCarton
-        );
-      }
-      if (formData.quantityType === "Both") {
-        return !!(
-          formData.unitsPerCarton &&
-          formData.numberOfCartons &&
-          formData.costPricePerCarton &&
-          formData.sellingPricePerCarton &&
-          formData.sellingPricePerUnit
-        );
-      }
-    }
-    return true;
-  };
-
   const nextStep = () => {
     if (!validateStep(currentStep)) {
       return;
@@ -121,7 +93,11 @@ const ProductFormModal: React.FC<Props> = ({
 
   const renderProgressBar = () => (
     <View style={styles.progressBarWrapper}>
-      <View style={styles.progressContainer}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.progressContainer}
+      >
         {STEPS.map((step, index) => (
           <View key={index} style={styles.stepItem}>
             <Text
@@ -132,7 +108,6 @@ const ProductFormModal: React.FC<Props> = ({
                   : styles.stepTextInactive,
               ]}
               numberOfLines={1}
-              adjustsFontSizeToFit
             >
               {step}
             </Text>
@@ -146,7 +121,7 @@ const ProductFormModal: React.FC<Props> = ({
             />
           </View>
         ))}
-      </View>
+      </ScrollView>
     </View>
   );
 
@@ -158,73 +133,76 @@ const ProductFormModal: React.FC<Props> = ({
       presentationStyle="pageSheet"
       onShow={() => setLayoutKey((k) => k + 1)}
     >
-      <SafeAreaView
-        style={[styles.container, { paddingBottom: insets.bottom }]}
-      >
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>{title}</Text>
-          <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-            <Ionicons name="close" size={22} color="#1A202C" />
-          </TouchableOpacity>
-        </View>
-
-        {currentStep < 3 && renderProgressBar()}
-
-        {currentStep === 0 && (
-          <ProductInfoStep
-            key={`info-${layoutKey}`}
-            formData={formData}
-            updateFormData={updateFormData}
-            availableCategories={availableCategories}
-            categoriesLoading={loadingCategories}
-            showCategoryDropdown={showCategoryDropdown}
-            setShowCategoryDropdown={setShowCategoryDropdown}
-            imageUploading={imageUploading}
-            onPickImage={pickImage}
-            onScanBarcode={onScanBarcode}
-          />
-        )}
-        {currentStep === 1 && (
-          <PricingStep formData={formData} updateFormData={updateFormData} />
-        )}
-        {currentStep === 2 && (
-          <StockExtrasStep
-            formData={formData}
-            updateFormData={updateFormData}
-          />
-        )}
-        {currentStep < 3 && (
-          <View
-            style={[
-              styles.navigationButtons,
-              { paddingBottom: insets.bottom ? insets.bottom + 12 : 12 },
-            ]}
-          >
-            <TouchableOpacity
-              style={[styles.backBtn, currentStep === 0 && { opacity: 0.5 }]}
-              onPress={prevStep}
-              disabled={saving || imageUploading}
-            >
-              <Ionicons name="arrow-back" size={18} color="#4A5568" />
-              <Text style={styles.backBtnText}>Back</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.nextBtn,
-                (saving || imageUploading) && { opacity: 0.7 },
-                currentStep === 0 && { flex: 1 },
-              ]}
-              onPress={nextStep}
-              disabled={saving || imageUploading}
-            >
-              <Text style={styles.nextBtnText}>
-                {currentStep === 2 ? "Confirm" : "Next"}
-              </Text>
-              <Ionicons name="arrow-forward" size={18} color="#FFF" />
+      <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>{title}</Text>
+            <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+              <Ionicons name="close" size={22} color="#1A202C" />
             </TouchableOpacity>
           </View>
-        )}
+
+          {currentStep < 3 && renderProgressBar()}
+
+          {currentStep === 0 && (
+            <ProductInfoStep
+              key={`info-${layoutKey}`}
+              formData={formData}
+              updateFormData={updateFormData}
+              availableCategories={availableCategories}
+              categoriesLoading={loadingCategories}
+              showCategoryDropdown={showCategoryDropdown}
+              setShowCategoryDropdown={setShowCategoryDropdown}
+              imageUploading={imageUploading}
+              onPickImage={pickImage}
+              onScanBarcode={onScanBarcode}
+            />
+          )}
+          {currentStep === 1 && (
+            <PricingStep formData={formData} updateFormData={updateFormData} />
+          )}
+          {currentStep === 2 && (
+            <StockExtrasStep
+              formData={formData}
+              updateFormData={updateFormData}
+            />
+          )}
+          {currentStep < 3 && (
+            <View
+              style={[
+                styles.navigationButtons,
+                { paddingBottom: insets.bottom ? insets.bottom + 12 : 12 },
+              ]}
+            >
+              <TouchableOpacity
+                style={[styles.backBtn, currentStep === 0 && { opacity: 0.5 }]}
+                onPress={prevStep}
+                disabled={saving || imageUploading}
+              >
+                <Ionicons name="arrow-back" size={18} color="#4A5568" />
+                <Text style={styles.backBtnText}>Back</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.nextBtn,
+                  (saving || imageUploading) && { opacity: 0.7 },
+                  currentStep === 0 && { flex: 1 },
+                ]}
+                onPress={nextStep}
+                disabled={saving || imageUploading}
+              >
+                <Text style={styles.nextBtnText}>
+                  {currentStep === 2 ? "Confirm" : "Next"}
+                </Text>
+                <Ionicons name="arrow-forward" size={18} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </KeyboardAvoidingView>
 
         {(saving || imageUploading) && (
           <View style={styles.loadingOverlay}>
@@ -297,16 +275,16 @@ const styles = StyleSheet.create({
   progressContainer: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: isSmall ? 6 : 10,
+    gap: isSmall ? 16 : 24,
+    paddingRight: isSmall ? 12 : 20,
   },
   stepItem: {
-    flex: 1,
     alignItems: "flex-start",
   },
   stepText: {
-    fontSize: isSmall ? 9 : 12,
+    fontSize: isSmall ? 12 : 14,
     fontFamily: "DMSans_500Medium",
-    marginBottom: 5,
+    marginBottom: 6,
     textAlign: "left",
   },
   stepTextActive: { color: "#1155CC" },

@@ -13,6 +13,7 @@ import {
   Alert,
   Dimensions,
   Image,
+  KeyboardAvoidingView,
   Modal,
   PermissionsAndroid,
   Platform,
@@ -31,6 +32,7 @@ import {
   launchImageLibrary,
   MediaType,
 } from "react-native-image-picker";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width, height } = Dimensions.get("window");
 
@@ -177,6 +179,7 @@ const parseProductToFormData = (product: Product): FormData => {
 
 const EditProduct: React.FC = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { productId } = useLocalSearchParams();
   const productIdString = Array.isArray(productId) ? productId[0] : productId;
 
@@ -1017,64 +1020,74 @@ const EditProduct: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>
-          Edit Product: {formData.productName}
-        </Text>
-        <TouchableOpacity
-          style={styles.closeButton}
-          onPress={() => router.back()}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>
+            Edit Product: {formData.productName}
+          </Text>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.closeButtonText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Progress Bar */}
+        {renderProgressBar()}
+
+        {/* Content */}
+        {currentStep === 0 && renderStep1()}
+        {currentStep === 1 && renderStep2()}
+        {currentStep === 2 && renderStep3()}
+        {currentStep === 3 && renderSummary()}
+
+        {/* Navigation Buttons */}
+        <View
+          style={[
+            styles.navigationButtons,
+            { paddingBottom: insets.bottom + verticalScale(15) },
+          ]}
         >
-          <Text style={styles.closeButtonText}>✕</Text>
-        </TouchableOpacity>
-      </View>
+          {currentStep > 0 && (
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={prevStep}
+              disabled={updating}
+            >
+              <Text style={styles.backButtonText}>← Back</Text>
+            </TouchableOpacity>
+          )}
 
-      {/* Progress Bar */}
-      {renderProgressBar()}
-
-      {/* Content */}
-      {currentStep === 0 && renderStep1()}
-      {currentStep === 1 && renderStep2()}
-      {currentStep === 2 && renderStep3()}
-      {currentStep === 3 && renderSummary()}
-
-      {/* Navigation Buttons */}
-      <View style={styles.navigationButtons}>
-        {currentStep > 0 && (
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={prevStep}
-            disabled={updating}
-          >
-            <Text style={styles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
-        )}
-
-        {currentStep < 3 ? (
-          // Next Button
-          <TouchableOpacity
-            style={styles.nextButton}
-            onPress={nextStep}
-            disabled={updating}
-          >
-            <Text style={styles.nextButtonText}>Next →</Text>
-          </TouchableOpacity>
-        ) : (
-          // Update Button on Summary Step (currentStep === 3)
-          <TouchableOpacity
-            style={[styles.saveProductButton, updating && { opacity: 0.7 }]}
-            onPress={handleUpdateProduct}
-            disabled={updating || imageUploading}
-          >
-            {updating ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
-            ) : (
-              <Text style={styles.saveProductButtonText}>Save Changes ✓</Text>
-            )}
-          </TouchableOpacity>
-        )}
-      </View>
+          {currentStep < 3 ? (
+            // Next Button
+            <TouchableOpacity
+              style={styles.nextButton}
+              onPress={nextStep}
+              disabled={updating}
+            >
+              <Text style={styles.nextButtonText}>Next →</Text>
+            </TouchableOpacity>
+          ) : (
+            // Update Button on Summary Step (currentStep === 3)
+            <TouchableOpacity
+              style={[styles.saveProductButton, updating && { opacity: 0.7 }]}
+              onPress={handleUpdateProduct}
+              disabled={updating || imageUploading}
+            >
+              {updating ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.saveProductButtonText}>Save Changes ✓</Text>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+      </KeyboardAvoidingView>
 
       {/* Barcode Scanner Modal (Placeholder) */}
       <Modal visible={showScanner} transparent animationType="slide">

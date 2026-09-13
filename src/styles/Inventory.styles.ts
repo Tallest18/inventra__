@@ -42,6 +42,11 @@ export const styles = StyleSheet.create({
     color: "#666",
     fontFamily: "DMSans_400Regular",
   },
+  listLoading: {
+    paddingVertical: verticalScale(80),
+    alignItems: "center",
+    justifyContent: "center",
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -79,9 +84,9 @@ export const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: "row",
     paddingHorizontal: H_PAD,
-    paddingBottom: verticalScale(12),
+    paddingVertical: verticalScale(8),
     backgroundColor: "#E7EEFA",
-    alignItems: "stretch",
+    alignItems: "center",
     gap: scale(10),
   },
   searchInputContainer: {
@@ -89,12 +94,10 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FFFFFF",
-    borderRadius: moderateScale(10),
+    borderRadius: moderateScale(14),
     paddingHorizontal: scale(14),
-    paddingVertical: verticalScale(isSmallDevice ? 8 : 10),
+    paddingVertical: verticalScale(isSmallDevice ? 7 : 11),
     gap: scale(8),
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
   },
   searchInput: {
     flex: 1,
@@ -105,13 +108,11 @@ export const styles = StyleSheet.create({
   },
   filterButton: {
     backgroundColor: "#FFFFFF",
-    borderRadius: moderateScale(10),
-    paddingHorizontal: scale(12),
-    alignItems: "center",
+    borderRadius: moderateScale(12),
+    width: scale(46),
+    alignSelf: "stretch",
     justifyContent: "center",
-    aspectRatio: 1,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
+    alignItems: "center",
   },
   filtersContainer: {
     backgroundColor: "#E7EEFA",

@@ -9,13 +9,49 @@ import {
     useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
+import { SubscriptionWatcher } from "@/components/auth/SubscriptionWatcher";
 import { AddProductContext } from "@/context/AddProductContext";
 import type { Product as AddProductModel } from "@/hooks/useAddProductForm";
-import { clearTokens, getAccessToken, getProfile } from "@/src/api";
+import {
+  clearTokens,
+  getAccessToken,
+  getProfile,
+  parseApiError,
+} from "@/src/api";
+import type { OnboardingStatus } from "@/src/api/types";
 import { FONT_ASSETS } from "../constants/fonts";
 import AddProductFlow from "./(Routes)/AddProductFlow";
 
 SplashScreen.preventAutoHideAsync();
+
+/** How long the branded splash stays up even when the session check is instant. */
+const SPLASH_MIN_MS = 1800;
+
+type Session =
+  | { status: "signed-out" }
+  | { status: "signed-in"; onboarding: OnboardingStatus };
+
+/**
+ * Everything routes on `onboarding_status`, the one field the API documents as
+ * covering every case: no PIN yet, PIN but no trial, active, or lapsed.
+ */
+function destinationFor(session: Session): string {
+  if (session.status === "signed-out") return "/(Auth)/WelcomeScreen";
+
+  switch (session.onboarding) {
+    case "active":
+      return "/(Main)/Home";
+    case "verify_number":
+      // Verified the number but never set a business type or PIN.
+      return "/(Auth)/BusinessSelectionScreen";
+    case "start_trial":
+    case "expired":
+    default:
+      // The design has no trial or paywall screen — the subscription gate
+      // surfaces those states on the first product call instead.
+      return "/(Main)/Home";
+  }
+}
 
 export default function AppLayout() {
   return (
@@ -26,8 +62,25 @@ export default function AppLayout() {
 }
 
 function AppContent() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [queryClient] = useState(() => new QueryClient());
+  const [session, setSession] = useState<Session | null>(null);
+  const [splashElapsed, setSplashElapsed] = useState(false);
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            // A 401/403 is an auth state, not a transient fault. Retrying it
+            // three times (React Query's default) floods both the network tab
+            // and the server with calls that cannot possibly succeed.
+            retry: (failureCount, error) => {
+              const status = (error as any)?.response?.status;
+              if (status === 401 || status === 403) return false;
+              return failureCount < 2;
+            },
+          },
+        },
+      }),
+  );
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [addProductInitialProduct, setAddProductInitialProduct] = useState<
     AddProductModel | undefined
@@ -65,43 +118,77 @@ function AppContent() {
       try {
         const accessToken = await getAccessToken();
         if (!accessToken) {
-          if (!cancelled) setIsAuthenticated(false);
+          if (!cancelled) setSession({ status: "signed-out" });
           return;
         }
-        await getProfile();
-        if (!cancelled) setIsAuthenticated(true);
-      } catch {
+        const profile = await getProfile();
+        if (!cancelled) {
+          setSession({
+            status: "signed-in",
+            onboarding: profile.onboarding_status,
+          });
+        }
+      } catch (err: any) {
+        // A 403 is NOT a failed login. /auth/profile/ is gated behind the
+        // subscription (despite the docs saying otherwise), so a user who has
+        // registered but not started a trial gets one here with a perfectly
+        // valid token. Clearing it would sign them out on every reload —
+        // precisely the people who should be seeing the blocking trial sheet.
+        const info = parseApiError(err);
+        const gated =
+          info.status === 403 ||
+          info.code === "trial_required" ||
+          info.code === "subscription_expired";
+
+        if (gated) {
+          if (!cancelled) {
+            setSession({
+              status: "signed-in",
+              onboarding:
+                info.code === "subscription_expired" ? "expired" : "start_trial",
+            });
+          }
+          return;
+        }
+
         await clearTokens();
-        if (!cancelled) setIsAuthenticated(false);
+        if (!cancelled) setSession({ status: "signed-out" });
       }
     };
 
     bootstrapSession();
 
+    const splashTimer = setTimeout(() => setSplashElapsed(true), SPLASH_MIN_MS);
+
     return () => {
       cancelled = true;
+      clearTimeout(splashTimer);
     };
   }, []);
 
   // --- Handle navigation based on auth state ---
   const handleNavigation = useCallback(() => {
     const fontsReady = fontsLoaded || fontError;
-    const authReady = isAuthenticated !== null;
     const routerReady = segments.length > 0 && !!segments[0];
 
-    if (!fontsReady || !authReady || !routerReady) return;
+    // The splash is a real screen in the flow, so hold the redirect until it has
+    // had its moment — otherwise a warm session flashes past it.
+    if (!fontsReady || !session || !routerReady || !splashElapsed) return;
     if (navigationHandled.current) return;
 
     SplashScreen.hideAsync();
 
     const inProtectedGroup =
       segments[0] === "(Main)" || segments[0] === "(Routes)";
-    const inAuthFlow = segments[0] === "(Auth)";
-    const inOnboardingFlow = segments[0] === "(Onboarding)";
-    const alreadyInCorrectPlace =
-      (isAuthenticated && inProtectedGroup) || (!isAuthenticated && inAuthFlow);
 
-    if (alreadyInCorrectPlace) return;
+    // Anywhere but the splash means the user is already navigating themselves.
+    if (segments[0] !== "(Onboarding)") {
+      navigationHandled.current = true;
+      if (session.status === "signed-out" && inProtectedGroup) {
+        router.replace("/(Auth)/WelcomeScreen");
+      }
+      return;
+    }
 
     // FIX: Set the flag BEFORE calling router.replace so a re-render
     // triggered by the replace cannot fire this callback a second time.
@@ -110,22 +197,14 @@ function AppContent() {
     // tree, and when the timeout fired it called History.pushState on a null
     // node → "Cannot read properties of null (reading 'dispatchEvent')".
     navigationHandled.current = true;
-
-    if (isAuthenticated && !inProtectedGroup) {
-      router.replace("/(Main)/Home");
-    } else if (!isAuthenticated && inProtectedGroup) {
-      router.replace("/(Auth)/WelcomeScreen");
-    } else if (!isAuthenticated && !inOnboardingFlow) {
-      router.replace("/(Onboarding)/Onboarding1");
-    }
-  }, [fontsLoaded, fontError, isAuthenticated, segments, router]);
+    router.replace(destinationFor(session) as any);
+  }, [fontsLoaded, fontError, session, splashElapsed, segments, router]);
 
   useEffect(() => {
     handleNavigation();
   }, [handleNavigation]);
 
   if (!fontsLoaded && !fontError) return null;
-  if (isAuthenticated === null) return null;
 
   const openAddProduct = () => {
     setAddProductInitialProduct(undefined);
@@ -159,19 +238,47 @@ function AppContent() {
             },
           }}
         >
-          <Stack.Screen name="(Onboarding)" options={{ headerShown: false }} />
-          <Stack.Screen name="(Auth)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="(Onboarding)"
+            options={{
+              headerShown: false,
+              // Full-bleed blue splash: drop the global top inset + grey
+              // background so the status-bar strip isn't a mismatched colour.
+              contentStyle: { paddingTop: 0, backgroundColor: "#1155CC" },
+            }}
+          />
+          <Stack.Screen
+            name="(Auth)"
+            options={{
+              headerShown: false,
+              // Same reason as the splash: the auth screens are full-bleed blue
+              // and apply their own top inset, so the global one would be
+              // counted twice under a mismatched grey strip.
+              contentStyle: { paddingTop: 0, backgroundColor: "#1155CC" },
+            }}
+          />
           <Stack.Screen name="(Main)" options={{ headerShown: false }} />
           <Stack.Screen name="(Routes)" options={{ headerShown: false }} />
         </Stack>
 
-        <AddProductFlow
-          visible={showAddProduct}
-          onClose={closeAddProduct}
-          onSaveProduct={closeAddProduct}
-          initialProduct={addProductInitialProduct}
-          startStep={addProductStartStep}
-        />
+        {/* App-wide, so an expiry or reminder surfaces on whatever screen the
+            user is on. It self-gates on the stored token rather than on
+            `session`, which is resolved once at boot and would still read
+            "signed out" straight after a fresh registration. */}
+        <SubscriptionWatcher />
+
+        {/* Mounted only once signed in. ProductFormModal calls useProductsData
+            in its component body, so keeping this mounted on the auth screens
+            fired unauthenticated /products/ requests on every screen. */}
+        {session?.status === "signed-in" && (
+          <AddProductFlow
+            visible={showAddProduct}
+            onClose={closeAddProduct}
+            onSaveProduct={closeAddProduct}
+            initialProduct={addProductInitialProduct}
+            startStep={addProductStartStep}
+          />
+        )}
       </AddProductContext.Provider>
     </QueryClientProvider>
   );

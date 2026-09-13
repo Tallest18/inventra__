@@ -54,6 +54,13 @@ export default function RoutesLayout() {
           title: "Profile",
         }}
       />
+      <Stack.Screen
+        name="PrivacyPolicy"
+        options={{
+          headerShown: false,
+          title: "Privacy Policy",
+        }}
+      />
     </Stack>
   );
 }

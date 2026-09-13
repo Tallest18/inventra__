@@ -11,6 +11,45 @@ import { Alert } from "react-native";
 
 const normalizeApiPath = (path: string) => path.replace(/^\/api(?=\/)/, "");
 
+// Pull a human-readable message out of an axios/server error so the user (and
+// we) see the real reason a save failed instead of a generic string.
+function extractApiError(error: any): string {
+  const data = error?.response?.data;
+  if (typeof data === "string" && data.trim()) return data.trim();
+  if (data && typeof data === "object") {
+    if (typeof data.detail === "string") return data.detail;
+    if (typeof data.message === "string") return data.message;
+    // DRF-style field errors, e.g. { image: ["..."], category: ["..."] }
+    const firstKey = Object.keys(data)[0];
+    if (firstKey) {
+      const val = (data as any)[firstKey];
+      const msg = Array.isArray(val) ? val[0] : val;
+      if (msg != null) {
+        return firstKey === "non_field_errors"
+          ? String(msg)
+          : `${firstKey}: ${msg}`;
+      }
+    }
+  }
+
+  // No HTTP response → axios "Network Error". The real cause is in the error
+  // code and the native React Native XHR response, so surface those.
+  if (!error?.response) {
+    const parts: string[] = [];
+    if (error?.code) parts.push(String(error.code));
+    const rn = error?.request?._response;
+    if (typeof rn === "string" && rn.trim() && rn !== "null") {
+      parts.push(rn.trim());
+    }
+    const url = `${error?.config?.baseURL ?? ""}${error?.config?.url ?? ""}`;
+    if (url) parts.push(`→ ${url}`);
+    if (error?.message) parts.push(error.message);
+    return parts.length ? parts.join(" | ") : "Network error";
+  }
+
+  return error?.message || "Please try again.";
+}
+
 
 export interface Product {
   id: string;
@@ -427,9 +466,15 @@ export function useAddProductForm(
 
       await invalidateInventoryQueries();
       setShowSuccessModal(true);
-    } catch (error) {
-      console.error("Error adding product:", error);
-      Alert.alert("Error", "Failed to add product. Please try again.");
+    } catch (error: any) {
+      console.error(
+        "Error adding product:",
+        error?.response?.status,
+        error?.response?.data ?? error,
+      );
+      const status = error?.response?.status;
+      const detail = extractApiError(error);
+      Alert.alert("Error", status ? `(${status}) ${detail}` : detail);
     } finally {
       setSaving(false);
     }

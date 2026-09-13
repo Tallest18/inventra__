@@ -23,7 +23,7 @@ interface Rect {
 }
 
 const MIN_SIZE = 60; // minimum crop box size (display px)
-const HANDLE = 28; // touch target for corner handles
+const HANDLE = 40; // touch target for corner handles
 
 interface Props {
   visible: boolean;
@@ -177,11 +177,21 @@ const ImageCropper: React.FC<Props> = ({ visible, image, onDone, onCancel }) => 
         image.height - originY,
       );
 
-      const result = await manipulateAsync(
-        image.uri,
-        [{ crop: { originX, originY, width, height } }],
-        { compress: 0.8, format: SaveFormat.JPEG },
-      );
+      // Crop, then downscale to a sane max width so the upload stays well under
+      // the server's 1MB limit (a raw cropped phone photo can be several MB,
+      // which the host drops mid-upload — surfacing as a "Network Error").
+      const MAX_WIDTH = 1024;
+      const actions: Parameters<typeof manipulateAsync>[1] = [
+        { crop: { originX, originY, width, height } },
+      ];
+      if (width > MAX_WIDTH) {
+        actions.push({ resize: { width: MAX_WIDTH } });
+      }
+
+      const result = await manipulateAsync(image.uri, actions, {
+        compress: 0.7,
+        format: SaveFormat.JPEG,
+      });
 
       onDone({
         uri: result.uri,
@@ -252,7 +262,7 @@ const ImageCropper: React.FC<Props> = ({ visible, image, onDone, onCancel }) => 
             ]}
           />
 
-          {/* Crop box */}
+          {/* Crop box (drag the interior to move it) */}
           <View
             {...moveResponder.panHandlers}
             style={[
@@ -270,38 +280,56 @@ const ImageCropper: React.FC<Props> = ({ visible, image, onDone, onCancel }) => 
             <View style={[styles.gridLine, styles.gridV, { left: "66.66%" }]} />
             <View style={[styles.gridLine, styles.gridH, { top: "33.33%" }]} />
             <View style={[styles.gridLine, styles.gridH, { top: "66.66%" }]} />
+          </View>
 
-            {/* Corner handles */}
-            <View
-              {...corners.tl.panHandlers}
-              style={[styles.handleTouch, { left: -HANDLE / 2, top: -HANDLE / 2 }]}
-            >
-              <View style={[styles.corner, styles.cornerTL]} />
-            </View>
-            <View
-              {...corners.tr.panHandlers}
-              style={[styles.handleTouch, { right: -HANDLE / 2, top: -HANDLE / 2 }]}
-            >
-              <View style={[styles.corner, styles.cornerTR]} />
-            </View>
-            <View
-              {...corners.bl.panHandlers}
-              style={[
-                styles.handleTouch,
-                { left: -HANDLE / 2, bottom: -HANDLE / 2 },
-              ]}
-            >
-              <View style={[styles.corner, styles.cornerBL]} />
-            </View>
-            <View
-              {...corners.br.panHandlers}
-              style={[
-                styles.handleTouch,
-                { right: -HANDLE / 2, bottom: -HANDLE / 2 },
-              ]}
-            >
-              <View style={[styles.corner, styles.cornerBR]} />
-            </View>
+          {/* Corner handles — rendered as siblings of the crop box (not
+              children) so their full touch target stays inside the stage.
+              Android won't deliver touches that fall outside a parent's
+              bounds, so child-of-box handles were largely untouchable. */}
+          <View
+            {...corners.tl.panHandlers}
+            style={[
+              styles.handleTouch,
+              { left: crop.x - HANDLE / 2, top: crop.y - HANDLE / 2 },
+            ]}
+          >
+            <View style={[styles.corner, styles.cornerTL]} />
+          </View>
+          <View
+            {...corners.tr.panHandlers}
+            style={[
+              styles.handleTouch,
+              {
+                left: crop.x + crop.width - HANDLE / 2,
+                top: crop.y - HANDLE / 2,
+              },
+            ]}
+          >
+            <View style={[styles.corner, styles.cornerTR]} />
+          </View>
+          <View
+            {...corners.bl.panHandlers}
+            style={[
+              styles.handleTouch,
+              {
+                left: crop.x - HANDLE / 2,
+                top: crop.y + crop.height - HANDLE / 2,
+              },
+            ]}
+          >
+            <View style={[styles.corner, styles.cornerBL]} />
+          </View>
+          <View
+            {...corners.br.panHandlers}
+            style={[
+              styles.handleTouch,
+              {
+                left: crop.x + crop.width - HANDLE / 2,
+                top: crop.y + crop.height - HANDLE / 2,
+              },
+            ]}
+          >
+            <View style={[styles.corner, styles.cornerBR]} />
           </View>
         </View>
 

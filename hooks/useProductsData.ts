@@ -5,7 +5,12 @@ import {
     ProductPayload,
     updateProduct,
 } from "@/src/api/products";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 interface ProductsDataParams {
   search?: string;
@@ -13,10 +18,11 @@ interface ProductsDataParams {
   page?: number;
   page_size?: number;
   category?: number;
+  sort?: "recent" | "name" | "name_desc";
 }
 
 export function useProductsData(params: ProductsDataParams = {}) {
-  const { search, filter, page, page_size, category } = params;
+  const { search, filter, page, page_size, category, sort } = params;
   const queryClient = useQueryClient();
   // Product categories
   const { data: categories, isLoading: loadingCategories } = useQuery({
@@ -26,7 +32,11 @@ export function useProductsData(params: ProductsDataParams = {}) {
   });
 
   // All products (optionally filtered by search)
-  const { data: products, isLoading: loadingProducts } = useQuery({
+  const {
+    data: products,
+    isLoading: loadingProducts,
+    isFetching: fetchingProducts,
+  } = useQuery({
     queryKey: ["products", search],
     queryFn: async () => {
       const queryParams = search ? { search } : {};
@@ -34,10 +44,17 @@ export function useProductsData(params: ProductsDataParams = {}) {
         await apiClient.get(endpoints.PRODUCTS_ITEMS, { params: queryParams })
       ).data;
     },
+    // Keep showing the previous results while a new search fetches, so the
+    // page (search bar, filters) stays put instead of flashing a full loader.
+    placeholderData: keepPreviousData,
   });
 
   // User inventory (optionally filtered by search)
-  const { data: userInventory, isLoading: loadingInventory } = useQuery({
+  const {
+    data: userInventory,
+    isLoading: loadingInventory,
+    isFetching: fetchingInventory,
+  } = useQuery({
     queryKey: [
       "user-inventory",
       search,
@@ -45,6 +62,7 @@ export function useProductsData(params: ProductsDataParams = {}) {
       page ?? 0,
       page_size ?? 10,
       category ?? null,
+      sort ?? "recent",
     ],
     queryFn: async () => {
       const queryParams = {
@@ -53,6 +71,7 @@ export function useProductsData(params: ProductsDataParams = {}) {
         ...(page !== undefined ? { page } : {}),
         ...(page_size !== undefined ? { page_size } : {}),
         ...(category !== undefined ? { category } : {}),
+        ...(sort ? { sort } : {}),
       };
       return (
         await apiClient.get(endpoints.PRODUCTS_USER_INVENTORY, {
@@ -60,6 +79,7 @@ export function useProductsData(params: ProductsDataParams = {}) {
         })
       ).data;
     },
+    placeholderData: keepPreviousData,
   });
 
   // Create product mutation
@@ -140,6 +160,8 @@ export function useProductsData(params: ProductsDataParams = {}) {
     loadingCategories,
     loadingProducts,
     loadingInventory,
+    fetchingProducts,
+    fetchingInventory,
     categories,
     products,
     userInventory,

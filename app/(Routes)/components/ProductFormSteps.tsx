@@ -591,6 +591,10 @@ export const ProductSummary: React.FC<ProductSummaryProps> = ({
   onClose,
 }) => {
   const insets = useSafeAreaInsets();
+  // Bumped once the sheet finishes sliding up so the ScrollView remounts and
+  // measures against the settled sheet height — otherwise it's measured
+  // mid-animation, caches "content fits", and won't scroll to the bottom.
+  const [layoutKey, setLayoutKey] = useState(0);
   const totalUnits =
     (parseInt(formData.unitsPerCarton) || 0) *
     (parseInt(formData.numberOfCartons) || 0);
@@ -682,6 +686,7 @@ export const ProductSummary: React.FC<ProductSummaryProps> = ({
       transparent
       animationType="slide"
       onRequestClose={onClose}
+      onShow={() => setLayoutKey((k) => k + 1)}
       statusBarTranslucent
     >
       <View style={styles.summaryOverlay}>
@@ -702,6 +707,7 @@ export const ProductSummary: React.FC<ProductSummaryProps> = ({
           </View>
 
           <ScrollView
+            key={layoutKey}
             style={styles.summaryScroll}
             contentContainerStyle={{ paddingBottom: 32 + insets.bottom }}
             showsVerticalScrollIndicator={false}

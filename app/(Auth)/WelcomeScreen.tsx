@@ -1,11 +1,8 @@
 // app/(Auth)/WelcomeScreen.tsx
-import { requestOtp } from "@/src/api";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,76 +13,122 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const { width, height } = Dimensions.get("window");
+import { AuthButton } from "@/components/auth/AuthButton";
+import {
+  AUTH_COLORS,
+  AUTH_FONTS,
+  AUTH_METRICS,
+} from "@/components/auth/authTheme";
+import {
+  checkPhone,
+  forgotPin,
+  maskPhone,
+  normalizePhone,
+  parseApiError,
+  registerNumber,
+  saveLastPhone,
+} from "@/src/api";
+import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 
-const clamp = (val: number, min: number, max: number) =>
-  Math.min(Math.max(val, min), max);
-const scale = (size: number) =>
-  clamp((width / 375) * size, size * 0.76, size * 1.3);
-const verticalScale = (size: number) =>
-  clamp((height / 812) * size, size * 0.62, size * 1.2);
-const moderateScale = (size: number, factor = 0.5) =>
-  size + (scale(size) - size) * factor;
+/** 8012345678 -> "0801 234 5678", the grouping the design shows. */
+const formatLocal = (digits: string): string => {
+  const d = digits.slice(0, 11);
+  if (d.length <= 4) return d;
+  if (d.length <= 7) return `${d.slice(0, 4)} ${d.slice(4)}`;
+  return `${d.slice(0, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
+};
 
 const WelcomeScreen: React.FC = () => {
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const insets = useSafeAreaInsets();
+  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<TextInput>(null);
 
-  const formatPhoneNumber = (phone: string): string => {
-    let formatted = phone.trim().replace(/[\s\-\(\)]/g, "");
-    if (!formatted.startsWith("+")) {
-      formatted = formatted.replace(/^0/, "");
-      formatted = "+234" + formatted;
-    }
-    return formatted;
+  const digits = phone.replace(/\D/g, "");
+  // Local numbers are 11 digits with the leading 0, 10 without it.
+  const isValid = digits.length >= 10 && digits.length <= 11;
+
+  const handleChange = (text: string) => {
+    setPhone(formatLocal(text.replace(/\D/g, "")));
+    if (error) setError(null);
   };
 
-  const validatePhoneNumber = (phone: string): boolean => {
-    const phoneRegex = /^\+[1-9]\d{6,14}$/;
-    return phoneRegex.test(phone);
-  };
+  const handleContinue = async () => {
+    if (!isValid || loading) return;
 
-  const handleSendOTP = async () => {
-    if (!phoneNumber.trim()) {
-      Alert.alert("Error", "Please enter your phone number");
-      return;
-    }
-
-    const formattedPhone = formatPhoneNumber(phoneNumber);
-
-    if (!validatePhoneNumber(formattedPhone)) {
-      Alert.alert(
-        "Error",
-        "Please enter a valid phone number with country code",
-      );
-      return;
-    }
+    const fullPhone = normalizePhone(digits);
+    setLoading(true);
+    setError(null);
 
     try {
-      setLoading(true);
-      const resp = await requestOtp(formattedPhone);
+      // Step 1: register-number sends the OTP. Its 409 doubles as the signal
+      // that this number already has an account, so it is the only call the
+      // happy path needs.
+      const otp = await registerNumber(fullPhone);
+      await saveLastPhone(fullPhone);
 
-      // setTimeout ensures the web History API is fully ready before navigation
-      setTimeout(() => {
-        if (router && typeof router.replace === "function") {
-          router.replace({
-            pathname: "/(Auth)/VerificationScreen",
+      router.push({
+        pathname: "/(Auth)/VerificationScreen",
+        params: {
+          phone: fullPhone,
+          maskedPhone: maskPhone(fullPhone),
+          verificationId: otp.verification_id,
+          mode: "register",
+        },
+      });
+    } catch (err: any) {
+      const info = parseApiError(
+        err,
+        "We couldn't reach Inventra. Please try again.",
+      );
+
+      if (info.code !== "account_exists") {
+        setError(info.message);
+        return;
+      }
+
+      // The number is already registered. check-phone says whether onboarding
+      // ever finished, and supplies the name and avatar the Welcome Back
+      // screen shows.
+      try {
+        const account = await checkPhone(fullPhone);
+        await saveLastPhone(fullPhone);
+        const masked = account.masked_phone || maskPhone(fullPhone);
+
+        if (account.has_pin) {
+          router.push({
+            pathname: "/(Auth)/WelcomeBackScreen",
             params: {
-              phoneNumber: formattedPhone,
-              verificationId: resp.verification_id,
-              mockCode: resp.code ?? "",
+              phone: fullPhone,
+              maskedPhone: masked,
+              name: account.name ?? "",
+              avatar: account.profile_image ?? "",
             },
           });
+          return;
         }
-      }, 300);
-    } catch (error: any) {
-      console.error("Error sending OTP:", error);
-      const message =
-        error?.response?.data?.error ||
-        error?.response?.data?.detail ||
-        "Failed to send verification code. Please try again.";
-      Alert.alert("Error", message);
+
+        // Verified the number once but quit before setting a PIN. register-number
+        // will keep returning 409, so forgot-pin is the only route to a fresh
+        // OTP — then business type and PIN as normal.
+        const otp = await forgotPin(fullPhone);
+        router.push({
+          pathname: "/(Auth)/VerificationScreen",
+          params: {
+            phone: fullPhone,
+            maskedPhone: masked,
+            verificationId: otp.verification_id,
+            mode: "register",
+          },
+        });
+      } catch (recoveryError: any) {
+        setError(
+          parseApiError(recoveryError, "We couldn't reach Inventra.").message,
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -94,56 +137,102 @@ const WelcomeScreen: React.FC = () => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={0}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#1155CC" />
+      <StatusBar barStyle="light-content" backgroundColor={AUTH_COLORS.brand} />
 
-      <View style={styles.topSection}>
-        <Text style={styles.greeting}>Hello!</Text>
-        <Text style={styles.subtitle}>Welcome to Inventra</Text>
-        <Text style={styles.description}>
+      <View style={[styles.header, { paddingTop: insets.top + verticalScale(40) }]}>
+        <Text style={styles.hello}>Hello</Text>
+        <Text style={styles.welcome}>Welcome to inventra</Text>
+        <Text style={styles.tagline}>
           No more paper book, your stock is safe here
         </Text>
       </View>
 
-      <View style={styles.bottomSection}>
-        <View style={styles.handleBar} />
-
+      <View style={styles.sheet}>
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.sheetContent,
+            { paddingBottom: insets.bottom + verticalScale(24) },
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <TextInput
-            style={[styles.input, loading && styles.inputDisabled]}
-            placeholder="Phone number (e.g., +234XXXXXXXXX)"
-            placeholderTextColor="#9CA3AF"
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            keyboardType="phone-pad"
-            maxLength={17}
-            autoComplete="tel"
-            textContentType="telephoneNumber"
-            editable={!loading}
-            autoFocus
-          />
-
-          <Text style={styles.infoText}>
-            We&apos;ll send you a one-time password (OTP) to verify your number.
+          <Text style={styles.title}>Enter your phone number</Text>
+          <Text style={styles.description}>
+            We&apos;ll check if you have an account. No spam, we promise.
           </Text>
 
+          <Text style={styles.fieldLabel}>PHONE NUMBER</Text>
+
           <TouchableOpacity
-            style={[styles.continueButton, loading && styles.disabledButton]}
-            onPress={handleSendOTP}
-            disabled={loading || !phoneNumber.trim()}
+            activeOpacity={1}
+            // Without these, react-native-web renders this wrapper as a
+            // focusable <div tabindex="0"> around the <input> and intercepts
+            // pointer/focus handling. Native tap-to-focus still works.
+            accessible={false}
+            focusable={false}
+            onPress={() => inputRef.current?.focus()}
+            style={[
+              styles.field,
+              !!error && styles.fieldError,
+              loading && styles.fieldDisabled,
+            ]}
           >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
-            ) : (
-              <Text style={styles.continueButtonText}>Send OTP</Text>
-            )}
+            <Text style={styles.flag}>🇳🇬</Text>
+            <Text style={styles.dialCode}>+234</Text>
+            <View style={styles.divider} />
+            <Ionicons
+              name="call-outline"
+              size={moderateScale(16)}
+              color={AUTH_COLORS.textFaint}
+            />
+            <TextInput
+              ref={inputRef}
+              style={styles.input}
+              placeholder="0801 234 5678"
+              placeholderTextColor={AUTH_COLORS.textFaint}
+              value={phone}
+              onChangeText={handleChange}
+              keyboardType="phone-pad"
+              maxLength={13}
+              autoComplete="tel"
+              textContentType="telephoneNumber"
+              editable={!loading}
+              returnKeyType="done"
+              onSubmitEditing={handleContinue}
+            />
           </TouchableOpacity>
+
+          <Text style={[styles.hint, !!error && styles.hintError]}>
+            {error ?? "New users will receive an OTP to verify their number."}
+          </Text>
+
+          <AuthButton
+            label="Continue"
+            withArrow
+            onPress={handleContinue}
+            loading={loading}
+            disabled={!isValid}
+          />
+
+          <Text style={styles.terms}>
+            By continuing, you agree to Inventra&apos;s{" "}
+            <Text
+              style={styles.link}
+              onPress={() => router.push("/(Routes)/PrivacyPolicy")}
+            >
+              Terms of Service
+            </Text>{" "}
+            and{" "}
+            <Text
+              style={styles.link}
+              onPress={() => router.push("/(Routes)/PrivacyPolicy")}
+            >
+              Privacy Policy
+            </Text>
+            .
+          </Text>
         </ScrollView>
       </View>
     </KeyboardAvoidingView>
@@ -151,92 +240,113 @@ const WelcomeScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#1155CC" },
-  topSection: {
-    flex: 1,
-    justifyContent: "center",
+  container: { flex: 1, backgroundColor: AUTH_COLORS.brand },
+  header: {
+    paddingHorizontal: AUTH_METRICS.gutter,
+    paddingBottom: verticalScale(28),
     alignItems: "center",
-    paddingHorizontal: scale(32),
-    paddingVertical: verticalScale(16),
   },
-  greeting: {
-    fontSize: moderateScale(52),
-    fontFamily: "DMSans_700Bold",
-    color: "#FFFFFF",
-    lineHeight: moderateScale(64),
+  hello: {
+    fontSize: moderateScale(44),
+    lineHeight: moderateScale(52),
+    fontFamily: AUTH_FONTS.bold,
+    color: AUTH_COLORS.onBrand,
   },
-  subtitle: {
-    fontSize: moderateScale(22),
-    color: "#FFFFFF",
-    fontFamily: "DMSans_400Regular",
-    lineHeight: moderateScale(32),
+  welcome: {
+    fontSize: moderateScale(20),
+    fontFamily: AUTH_FONTS.bold,
+    color: AUTH_COLORS.onBrand,
+    marginTop: verticalScale(6),
+  },
+  tagline: {
+    fontSize: moderateScale(13),
+    fontFamily: AUTH_FONTS.regular,
+    color: AUTH_COLORS.onBrandMuted,
+    marginTop: verticalScale(6),
     textAlign: "center",
+  },
+  sheet: {
+    flex: 1,
+    backgroundColor: AUTH_COLORS.sheet,
+    borderTopLeftRadius: AUTH_METRICS.sheetRadius,
+    borderTopRightRadius: AUTH_METRICS.sheetRadius,
+  },
+  sheetContent: {
+    paddingHorizontal: AUTH_METRICS.gutter,
+    paddingTop: verticalScale(26),
+    flexGrow: 1,
+  },
+  title: {
+    fontSize: moderateScale(19),
+    fontFamily: AUTH_FONTS.bold,
+    color: AUTH_COLORS.text,
   },
   description: {
-    fontSize: moderateScale(14),
-    fontFamily: "DMSans_400Regular",
-    color: "#E3F2FD",
-    textAlign: "center",
-    lineHeight: moderateScale(22),
-    opacity: 0.9,
-    marginTop: verticalScale(4),
+    fontSize: moderateScale(13.5),
+    lineHeight: moderateScale(20),
+    fontFamily: AUTH_FONTS.regular,
+    color: AUTH_COLORS.textMuted,
+    marginTop: verticalScale(6),
   },
-  bottomSection: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: verticalScale(8),
+  fieldLabel: {
+    fontSize: moderateScale(11),
+    letterSpacing: 0.8,
+    fontFamily: AUTH_FONTS.medium,
+    color: AUTH_COLORS.textMuted,
+    marginTop: verticalScale(22),
+    marginBottom: verticalScale(8),
   },
-  handleBar: {
-    width: scale(80),
-    height: verticalScale(4),
-    backgroundColor: "#E5E7EB",
-    borderRadius: moderateScale(2),
-    alignSelf: "center",
-    marginBottom: verticalScale(24),
+  field: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: AUTH_METRICS.fieldHeight,
+    borderRadius: AUTH_METRICS.fieldRadius,
+    backgroundColor: AUTH_COLORS.field,
+    paddingHorizontal: scale(14),
+    borderWidth: 1,
+    borderColor: "transparent",
   },
-  scrollContent: {
-    paddingHorizontal: scale(24),
-    paddingBottom: verticalScale(32),
-    flexGrow: 1,
-    justifyContent: "center",
+  fieldError: { borderColor: AUTH_COLORS.danger },
+  fieldDisabled: { opacity: 0.6 },
+  flag: { fontSize: moderateScale(16) },
+  dialCode: {
+    fontSize: moderateScale(15),
+    fontFamily: AUTH_FONTS.semibold,
+    color: AUTH_COLORS.text,
+    marginLeft: scale(6),
+  },
+  divider: {
+    width: 1,
+    height: "45%",
+    backgroundColor: AUTH_COLORS.border,
+    marginHorizontal: scale(12),
   },
   input: {
-    borderWidth: 1.5,
-    borderColor: "#D1D5DB",
-    borderRadius: moderateScale(12),
-    paddingHorizontal: scale(16),
-    paddingVertical: verticalScale(14),
-    fontSize: moderateScale(16),
-    fontFamily: "DMSans_400Regular",
-    color: "#111827",
-    marginBottom: verticalScale(14),
-    backgroundColor: "#FFFFFF",
+    flex: 1,
+    height: "100%",
+    marginLeft: scale(8),
+    fontSize: moderateScale(15),
+    fontFamily: AUTH_FONTS.regular,
+    color: AUTH_COLORS.text,
   },
-  inputDisabled: { opacity: 0.6 },
-  infoText: {
-    fontSize: moderateScale(13),
-    fontFamily: "DMSans_400Regular",
-    color: "#6B7280",
-    textAlign: "left",
-    marginBottom: verticalScale(28),
-    lineHeight: moderateScale(20),
+  hint: {
+    fontSize: moderateScale(12),
+    lineHeight: moderateScale(17),
+    fontFamily: AUTH_FONTS.regular,
+    color: AUTH_COLORS.textMuted,
+    marginTop: verticalScale(10),
+    marginBottom: verticalScale(20),
   },
-  continueButton: {
-    backgroundColor: "#1155CC",
-    borderRadius: moderateScale(25),
-    paddingVertical: verticalScale(14),
-    alignItems: "center",
-    marginBottom: verticalScale(12),
+  hintError: { color: AUTH_COLORS.danger, fontFamily: AUTH_FONTS.medium },
+  terms: {
+    fontSize: moderateScale(11.5),
+    lineHeight: moderateScale(17),
+    fontFamily: AUTH_FONTS.regular,
+    color: AUTH_COLORS.textMuted,
+    textAlign: "center",
+    marginTop: verticalScale(16),
   },
-  disabledButton: { opacity: 0.6 },
-  continueButtonText: {
-    color: "#FFFFFF",
-    fontSize: moderateScale(17),
-    fontFamily: "DMSans_700Bold",
-    lineHeight: moderateScale(24),
-  },
+  link: { color: AUTH_COLORS.brand, fontFamily: AUTH_FONTS.semibold },
 });
 
 export default WelcomeScreen;

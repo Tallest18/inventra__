@@ -1,4 +1,8 @@
-import { getUnreadNotificationsCount, markNotificationRead } from "@/src/api";
+import {
+  getUnreadNotificationsCount,
+  isAccessGated,
+  markNotificationRead,
+} from "@/src/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export const UNREAD_COUNT_KEY = ["notifications-unread-count"];
@@ -8,7 +12,8 @@ export function useUnreadNotificationsCount() {
   const { data } = useQuery({
     queryKey: UNREAD_COUNT_KEY,
     queryFn: getUnreadNotificationsCount,
-    refetchInterval: 15000,
+    // Pause while the subscription gate is closed; this endpoint can only 403.
+    refetchInterval: () => (isAccessGated() ? false : 15000),
   });
   return data?.unread_count ?? 0;
 }

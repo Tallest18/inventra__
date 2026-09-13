@@ -35,6 +35,9 @@ type Section = {
 
 const ProfileSheet: React.FC<ProfileSheetProps> = ({ visible, onClose }) => {
   const insets = useSafeAreaInsets();
+  // Remount the scroll list once the sheet finishes sliding up, so it measures
+  // against the settled height and scrolls on first drag (see ProductFormModal).
+  const [layoutKey, setLayoutKey] = useState(0);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -145,6 +148,7 @@ const ProfileSheet: React.FC<ProfileSheetProps> = ({ visible, onClose }) => {
         transparent
         animationType="slide"
         onRequestClose={onClose}
+        onShow={() => setLayoutKey((k) => k + 1)}
         statusBarTranslucent
       >
         <View style={styles.overlay}>
@@ -181,6 +185,7 @@ const ProfileSheet: React.FC<ProfileSheetProps> = ({ visible, onClose }) => {
             <View style={styles.headerDivider} />
 
             <ScrollView
+              key={layoutKey}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.scrollContent}
             >

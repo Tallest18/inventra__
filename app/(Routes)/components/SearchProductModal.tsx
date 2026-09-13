@@ -33,6 +33,9 @@ const SearchProductModal: React.FC<Props> = ({
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [recentSearches] = useState<string[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  // Remount the ScrollView once the sheet finishes sliding up so it measures
+  // against the settled height and scrolls on first drag (see ProductFormModal).
+  const [layoutKey, setLayoutKey] = useState(0);
 
   const handleSearch = async (text: string) => {
     setSearchQuery(text);
@@ -63,6 +66,7 @@ const SearchProductModal: React.FC<Props> = ({
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={handleClose}
+      onShow={() => setLayoutKey((k) => k + 1)}
     >
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
@@ -99,7 +103,7 @@ const SearchProductModal: React.FC<Props> = ({
           )}
         </View>
 
-        <ScrollView style={styles.content}>
+        <ScrollView key={layoutKey} style={styles.content}>
           {searchQuery.length === 0 && recentSearches.length > 0 && (
             <View style={styles.recentSection}>
               <Text style={styles.recentHeader}>Recent</Text>

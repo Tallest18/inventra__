@@ -1,12 +1,15 @@
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
+import useCartStore from "@/stores/cartStore";
 import {
     ActivityIndicator,
     Alert,
     Animated,
     Easing,
+    KeyboardAvoidingView,
     Modal,
+    Platform,
     SafeAreaView,
     ScrollView,
     Text,
@@ -14,6 +17,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatCurrency, formatNumber } from "@/utils/formatters";
 import { styles } from "./Checkout.styles";
 
@@ -95,6 +99,7 @@ interface CreateSalePayload {
 }
 
 const Checkout: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams();
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>("Cash");
@@ -279,6 +284,7 @@ const Checkout: React.FC = () => {
 
       await saleMutation.mutateAsync(payload);
       setProcessing(false);
+      useCartStore.getState().clearCart();
       showAppToast(
         `Checkout successful: ${formatCurrency(calculateTotal())} via ${selectedPayment}`,
         "success",
@@ -397,7 +403,7 @@ const Checkout: React.FC = () => {
       </ScrollView>
 
       {/* Footer with Done Button */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <TouchableOpacity
           style={styles.doneButton}
           onPress={handlePayment}
@@ -407,117 +413,121 @@ const Checkout: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Debtor Modal */}
       <Modal
         visible={showDebtorModal}
         transparent={true}
         animationType="slide"
         onRequestClose={() => setShowDebtorModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Debtor details</Text>
-              <TouchableOpacity
-                onPress={() => setShowDebtorModal(false)}
-                style={styles.closeButton}
-              >
-                <Feather name="x" size={24} color="#000" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Customer Name */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
-                  Customer Name <Text style={styles.required}>*</Text>
-                </Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Type here..."
-                  placeholderTextColor="#999"
-                  value={customerName}
-                  onChangeText={setCustomerName}
-                />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              {/* Modal Header */}
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Debtor details</Text>
+                <TouchableOpacity
+                  onPress={() => setShowDebtorModal(false)}
+                  style={styles.closeButton}
+                >
+                  <Feather name="x" size={24} color="#000" />
+                </TouchableOpacity>
               </View>
 
-              {/* Phone Number */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
-                  Phone Number <Text style={styles.required}>*</Text>
-                </Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Type here..."
-                  placeholderTextColor="#999"
-                  value={phoneNumber}
-                  onChangeText={setPhoneNumber}
-                  keyboardType="phone-pad"
-                />
-              </View>
-
-              {/* Amount Owed */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
-                  Amount Owed{" "}
-                  <Text style={styles.labelSubtext}>
-                    (How much thm dey owe?)*
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Customer Name */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    Customer Name <Text style={styles.required}>*</Text>
                   </Text>
-                </Text>
-                <View style={styles.amountInputContainer}>
-                  <Text style={styles.currencySymbol}>₦</Text>
                   <TextInput
-                    style={styles.amountInput}
-                    placeholder="0.00"
+                    style={styles.input}
+                    placeholder="Type here..."
                     placeholderTextColor="#999"
-                    value={amountOwed}
-                    onChangeText={setAmountOwed}
-                    keyboardType="numeric"
+                    value={customerName}
+                    onChangeText={setCustomerName}
                   />
                 </View>
 
-                {/* Quick Amount Buttons */}
-                <View style={styles.quickAmountsContainer}>
-                  {quickAmountButtons.map((amount) => (
-                    <TouchableOpacity
-                      key={amount}
-                      style={styles.quickAmountButton}
-                      onPress={() => setAmountOwed(amount.toString())}
-                    >
-                      <Text style={styles.quickAmountText}>
-                        ₦{formatNumber(amount)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                {/* Phone Number */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    Phone Number <Text style={styles.required}>*</Text>
+                  </Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Type here..."
+                    placeholderTextColor="#999"
+                    value={phoneNumber}
+                    onChangeText={setPhoneNumber}
+                    keyboardType="phone-pad"
+                  />
                 </View>
-              </View>
 
-              {/* Notes */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Notes</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  placeholder="Type here..."
-                  placeholderTextColor="#999"
-                  value={notes}
-                  onChangeText={setNotes}
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                />
-              </View>
+                {/* Amount Owed */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    Amount Owed{" "}
+                    <Text style={styles.labelSubtext}>
+                      (How much thm dey owe?)*
+                    </Text>
+                  </Text>
+                  <View style={styles.amountInputContainer}>
+                    <Text style={styles.currencySymbol}>₦</Text>
+                    <TextInput
+                      style={styles.amountInput}
+                      placeholder="0.00"
+                      placeholderTextColor="#999"
+                      value={amountOwed}
+                      onChangeText={setAmountOwed}
+                      keyboardType="numeric"
+                    />
+                  </View>
 
-              {/* Save Button */}
-              <TouchableOpacity
-                style={styles.saveDebtorButton}
-                onPress={handleSaveDebtor}
-              >
-                <Text style={styles.saveDebtorButtonText}>Save Debtor</Text>
-              </TouchableOpacity>
-            </ScrollView>
+                  {/* Quick Amount Buttons */}
+                  <View style={styles.quickAmountsContainer}>
+                    {quickAmountButtons.map((amount) => (
+                      <TouchableOpacity
+                        key={amount}
+                        style={styles.quickAmountButton}
+                        onPress={() => setAmountOwed(amount.toString())}
+                      >
+                        <Text style={styles.quickAmountText}>
+                          ₦{formatNumber(amount)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Notes */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Notes</Text>
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    placeholder="Type here..."
+                    placeholderTextColor="#999"
+                    value={notes}
+                    onChangeText={setNotes}
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                  />
+                </View>
+
+                {/* Save Button */}
+                <TouchableOpacity
+                  style={styles.saveDebtorButton}
+                  onPress={handleSaveDebtor}
+                >
+                  <Text style={styles.saveDebtorButtonText}>Save Debtor</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {showToast && (

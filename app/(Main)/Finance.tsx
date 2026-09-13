@@ -1,13 +1,13 @@
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  SafeAreaView,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { styles } from "../../src/styles/Finance.styles";
 
 import {

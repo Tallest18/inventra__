@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
+import useCartStore from "@/stores/cartStore";
 import {
     ActivityIndicator,
     Alert,
@@ -12,6 +13,8 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useToast } from "@/components/ui/useToast";
 import { formatCurrency } from "@/utils/formatters";
 import { styles } from "./components/Cart.styles";
 
@@ -67,10 +70,12 @@ interface CartItem {
 }
 
 const Cart: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams();
   const [loading, setLoading] = useState<boolean>(true);
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const { cart, setCart } = useCartStore();
+  const { showToast, toastElement } = useToast();
 
   useEffect(() => {
     let cartItems: CartItem[] = [];
@@ -159,9 +164,9 @@ const Cart: React.FC = () => {
     const item = cart.find((i) => i.id === id);
     if (item && item.product) {
       if (item.quantity >= item.product.unitsInStock) {
-        Alert.alert(
-          "Stock Limit",
-          `Only ${item.product.unitsInStock} units available in stock`,
+        showToast(
+          `Only ${item.product.unitsInStock} units of ${item.product.name} in stock`,
+          "warning",
         );
         return;
       }
@@ -205,6 +210,20 @@ const Cart: React.FC = () => {
     if (cart.length === 0) {
       Alert.alert("Empty Cart", "Please add items to your cart first");
       return;
+    }
+    // Block checkout if anything is out of stock or exceeds available stock,
+    // so an out-of-stock item never reaches the payment screen.
+    for (const item of cart) {
+      const stock = item.product?.unitsInStock ?? 0;
+      const name = item.product?.name ?? "This product";
+      if (stock <= 0) {
+        showToast(`${name} is out of stock — remove it to continue`, "warning");
+        return;
+      }
+      if (item.quantity > stock) {
+        showToast(`Only ${stock} units of ${name} in stock`, "warning");
+        return;
+      }
     }
     router.push({
       pathname: "/(Routes)/Checkout" as any,
@@ -346,7 +365,7 @@ const Cart: React.FC = () => {
           </ScrollView>
 
           {/* Total and Checkout */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
             <View style={styles.totalContainer}>
               <Text style={styles.totalLabel}>Total</Text>
               <Text style={styles.totalAmount}>
@@ -363,6 +382,7 @@ const Cart: React.FC = () => {
           </View>
         </>
       )}
+      {toastElement}
     </SafeAreaView>
   );
 };

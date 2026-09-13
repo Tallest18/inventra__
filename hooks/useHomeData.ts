@@ -15,6 +15,7 @@ import {
     ApiSaleItem,
     getDashboardOverview,
     getProfile,
+    isAccessGated,
     listNotifications,
     listSales,
     listUserInventory,
@@ -198,7 +199,8 @@ export const useHomeData = () => {
         };
       });
     },
-    refetchInterval: 15000,
+    // Pause while the subscription gate is closed; every call would 403.
+    refetchInterval: () => (isAccessGated() ? false : 15000),
   });
 
   const loadHomeData = useCallback(async () => {
@@ -276,7 +278,12 @@ export const useHomeData = () => {
 
   useEffect(() => {
     loadHomeData();
-    const interval = setInterval(loadHomeData, 15000);
+    const interval = setInterval(() => {
+      // This fires five parallel requests; skip it entirely while the gate is
+      // closed. The next successful response reopens it automatically.
+      if (isAccessGated()) return;
+      loadHomeData();
+    }, 15000);
     return () => clearInterval(interval);
   }, [loadHomeData]);
 

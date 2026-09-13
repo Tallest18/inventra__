@@ -15,6 +15,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useToast } from "../../components/ui/useToast";
 import { formatCurrency } from "../../utils/formatters";
 import {
   checkHighSelling,
@@ -42,6 +44,7 @@ interface CartItem extends Product {
 }
 
 const QuickSellScreen = () => {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
@@ -49,6 +52,7 @@ const QuickSellScreen = () => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [showProductList, setShowProductList] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const { showToast, toastElement } = useToast();
 
   // Fetch products
   useEffect(() => {
@@ -93,7 +97,20 @@ const QuickSellScreen = () => {
 
   // Add product to cart
   const addToCart = (product: Product) => {
+    if (product.unitsInStock <= 0) {
+      showToast(`${product.name} is out of stock`, "warning");
+      return;
+    }
+
     const existingItem = cartItems.find((item) => item.id === product.id);
+
+    if (existingItem && existingItem.quantity >= product.unitsInStock) {
+      showToast(
+        `Only ${product.unitsInStock} units of ${product.name} in stock`,
+        "warning",
+      );
+      return;
+    }
 
     if (existingItem) {
       // Increment quantity
@@ -135,7 +152,10 @@ const QuickSellScreen = () => {
     if (!product) return;
 
     if (newQuantity > product.unitsInStock) {
-      Alert.alert("Error", `Only ${product.unitsInStock} units available`);
+      showToast(
+        `Only ${product.unitsInStock} units of ${product.name} in stock`,
+        "warning",
+      );
       return;
     }
 
@@ -175,6 +195,22 @@ const QuickSellScreen = () => {
       if (cartItems.length === 0) {
         Alert.alert("Error", "Cart is empty");
         return;
+      }
+
+      // Final stock guard before hitting the API, so an out-of-stock item
+      // can't slip through to a sale request.
+      for (const item of cartItems) {
+        if (item.unitsInStock <= 0) {
+          showToast(`${item.name} is out of stock`, "warning");
+          return;
+        }
+        if (item.quantity > item.unitsInStock) {
+          showToast(
+            `Only ${item.unitsInStock} units of ${item.name} in stock`,
+            "warning",
+          );
+          return;
+        }
       }
 
       setIsProcessing(true);
@@ -369,7 +405,12 @@ const QuickSellScreen = () => {
 
       {/* Bottom Summary */}
       {cartItems.length > 0 && (
-        <View style={styles.bottomContainer}>
+        <View
+          style={[
+            styles.bottomContainer,
+            { paddingBottom: insets.bottom + 20 },
+          ]}
+        >
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Subtotal</Text>
             <Text style={styles.summaryValue}>
@@ -404,6 +445,7 @@ const QuickSellScreen = () => {
           </TouchableOpacity>
         </View>
       )}
+      {toastElement}
     </SafeAreaView>
   );
 };

@@ -16,6 +16,8 @@ import {
     View,
 } from "react-native";
 
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { getSale } from "@/src/api";
 import { formatNumber } from "@/utils/formatters";
 
@@ -126,6 +128,7 @@ const normalizeFromSaleData = (saleData: any): SaleDetail => ({
 const SalesDetailScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
   const [sale, setSale] = useState<SaleDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -349,7 +352,12 @@ const SalesDetailScreen = () => {
       </ScrollView>
 
       {/* Bottom action buttons */}
-      <View style={styles.footer}>
+      <View
+        style={[
+          styles.footer,
+          { paddingBottom: insets.bottom + verticalScale(14) },
+        ]}
+      >
         <TouchableOpacity
           style={[styles.footerButton, styles.contactButton]}
           onPress={handleContactDebtor}

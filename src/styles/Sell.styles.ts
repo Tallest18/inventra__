@@ -40,6 +40,11 @@ export const styles = StyleSheet.create({
     color: "#666",
     fontFamily: "DMSans_400Regular",
   },
+  listLoading: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
 
   // ── Header ──────────────────────────────────────────────────────────────────
   header: {

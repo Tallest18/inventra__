@@ -1,351 +1,225 @@
 // app/(Auth)/BusinessSelectionScreen.tsx
-import { AUTH_PROFILE } from "@/src/api/endpoints";
-import { useApiMutation } from "@/src/api/useApi";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
-import React, { useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
-  Dimensions,
-  Platform,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const { width, height } = Dimensions.get("window");
+import { AuthButton } from "@/components/auth/AuthButton";
+import { AuthScaffold } from "@/components/auth/AuthScaffold";
+import {
+  AUTH_COLORS,
+  AUTH_FONTS,
+  AUTH_TINTS,
+} from "@/components/auth/authTheme";
+import { getBusinessTypes, parseApiError } from "@/src/api";
+import type { BusinessTypeOption } from "@/src/api/types";
+import { moderateScale, scale, verticalScale } from "@/utils/scaling";
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(Math.max(value, min), max);
-const scale = (size: number) =>
-  clamp((width / 375) * size, size * 0.76, size * 1.3);
-const verticalScale = (size: number) =>
-  clamp((height / 812) * size, size * 0.62, size * 1.2);
-const moderateScale = (size: number, factor = 0.5) =>
-  size + (scale(size) - size) * factor;
+/** Icon + one-line blurb per business type, keyed by the backend's `value`. */
+const PRESENTATION: Record<
+  string,
+  { icon: keyof typeof Ionicons.glyphMap; blurb?: string }
+> = {
+  general_retail: { icon: "bag-handle-outline", blurb: "Groceries, FMCG, provisions" },
+  food_drinks: { icon: "restaurant-outline", blurb: "Restaurants, canteens, fast food" },
+  pharmacy: { icon: "medkit-outline", blurb: "Medicines, health products" },
+  fashion: { icon: "shirt-outline", blurb: "Clothes, shoes, accessories" },
+  wholesale: { icon: "cube-outline", blurb: "Bulk goods, B2B supply" },
+  others: { icon: "ellipsis-horizontal-circle-outline" },
+};
 
-interface BusinessType {
-  id: string;
-  title: string;
-  description: string;
-}
-
-const businessTypes: BusinessType[] = [
-  {
-    id: "retail",
-    title: "Retail Shop",
-    description:
-      "For supermarkets, provision stores, boutiques, pharmacies, and other product sellers.",
-  },
+const FALLBACK: BusinessTypeOption[] = [
+  { value: "general_retail", display: "General Retail" },
+  { value: "food_drinks", display: "Food & Drinks" },
+  { value: "pharmacy", display: "Pharmacy/Chemist" },
+  { value: "fashion", display: "Fashion & Clothing" },
+  { value: "wholesale", display: "Wholesale / Distributor" },
+  { value: "others", display: "Others" },
 ];
 
 const BusinessSelectionScreen: React.FC = () => {
-  const [selectedType, setSelectedType] = useState<string>("retail");
-  const [loading, setLoading] = useState(false);
+  const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ phone?: string }>();
 
-  const updateProfileMutation = useApiMutation("patch", AUTH_PROFILE, {
-    onError: (error: any) => {
-      console.error("API error updating profile:", error);
-    },
-  });
+  const [options, setOptions] = useState<BusinessTypeOption[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleFinish = async () => {
-    if (loading) return;
-    setLoading(true);
+  useEffect(() => {
+    let cancelled = false;
 
-    try {
-      await Promise.all([
-        AsyncStorage.setItem("businessType", selectedType),
-        AsyncStorage.setItem("hasCompletedOnboarding", "true"),
-        updateProfileMutation.mutateAsync({ business_type: selectedType }),
-      ]);
+    getBusinessTypes()
+      .then((types) => {
+        if (!cancelled) setOptions(types.length ? types : FALLBACK);
+      })
+      .catch((err) => {
+        // The list is a fixed set on the backend, so a network blip shouldn't
+        // block onboarding — fall back to the documented values.
+        if (cancelled) return;
+        setOptions(FALLBACK);
+        setError(parseApiError(err).message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-      setTimeout(() => {
-        router.replace("/(Main)/Home");
-      }, 100);
-    } catch (error) {
-      console.error("Error saving business type:", error);
-      Alert.alert(
-        "Setup Complete",
-        "Your business type was saved. Welcome to Inventra!",
-        [
-          {
-            text: "Continue",
-            onPress: () => {
-              setTimeout(() => {
-                router.replace("/(Main)/Home");
-              }, 100);
-            },
-          },
-        ],
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace("/(Auth)/WelcomeScreen");
-    }
-  };
-
-  const renderBusinessOption = (business: BusinessType) => {
-    const isSelected = selectedType === business.id;
-    const isRetail = business.id === "retail";
-
-    return (
-      <TouchableOpacity
-        key={business.id}
-        style={[
-          styles.businessOption,
-          isSelected && styles.selectedOption,
-          loading && styles.disabled,
-        ]}
-        onPress={() => !loading && setSelectedType(business.id)}
-        disabled={loading}
-        activeOpacity={0.7}
-      >
-        <View style={styles.businessContent}>
-          <View style={styles.businessInfo}>
-            <Text style={styles.businessTitle}>{business.title}</Text>
-            <Text style={styles.businessDescription}>
-              {business.description}
-            </Text>
-          </View>
-          <View style={styles.businessIcon}>
-            <Text style={{ fontSize: 50 }}>{isRetail ? "🛒" : "👥"}</Text>
-          </View>
-        </View>
-        {isSelected && <View style={styles.selectionIndicator} />}
-      </TouchableOpacity>
-    );
+  const handleContinue = () => {
+    if (!selected) return;
+    router.push({
+      pathname: "/(Auth)/CreatePinScreen",
+      params: { mode: "create", businessType: selected, phone: params.phone },
+    });
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1155CC" />
-
-      <View style={styles.topSection} />
-
-      <View style={styles.bottomSection}>
-        <View style={styles.handleBar} />
-
-        <ScrollView
-          style={styles.scrollContainer}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-        >
-          <View style={styles.formContainer}>
-            <Text style={styles.successText}>You are in!</Text>
-            <Text style={styles.title}>Choose One</Text>
-            <Text style={styles.subtitle}>
-              To maximize your experience of Inventra,{"\n"}tell us what you
-              want to do!
-            </Text>
-
-            <Text style={styles.sectionTitle}>Choose your business type</Text>
-
-            <View style={styles.optionsContainer}>
-              {businessTypes.map(renderBusinessOption)}
-            </View>
-          </View>
-        </ScrollView>
-
-        <View style={styles.buttonContainer}>
-          {/* <TouchableOpacity
-            style={[styles.backButton, loading && styles.disabled]}
-            onPress={handleGoBack}
-            disabled={loading}
-          >
-            <Text style={styles.backButtonText}>Back</Text>
-          </TouchableOpacity> */}
-
-          <TouchableOpacity
-            style={[styles.finishButton, loading && styles.disabled]}
-            onPress={handleFinish}
-            disabled={loading}
-            activeOpacity={0.8}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
-            ) : (
-              <Text style={styles.finishButtonText}>Finish</Text>
-            )}
-          </TouchableOpacity>
+    <AuthScaffold
+      title="Choose Business Type"
+      subtitle="Help us personalise Inventra for your business."
+      sheetStyle={{ paddingHorizontal: 0 }}
+    >
+      {loading ? (
+        <View style={styles.loading}>
+          <ActivityIndicator color={AUTH_COLORS.brand} />
         </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+        >
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {loading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#1155CC" />
-            <Text style={styles.loadingText}>Setting up your account...</Text>
-          </View>
-        )}
+          {options.map((option, index) => {
+            const isSelected = selected === option.value;
+            const tint = AUTH_TINTS[index % AUTH_TINTS.length];
+            const look = PRESENTATION[option.value];
+
+            return (
+              <TouchableOpacity
+                key={option.value}
+                style={[styles.row, isSelected && styles.rowSelected]}
+                onPress={() => setSelected(option.value)}
+                activeOpacity={0.8}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isSelected }}
+              >
+                <View style={[styles.iconTile, { backgroundColor: tint.bg }]}>
+                  <Ionicons
+                    name={look?.icon ?? "storefront-outline"}
+                    size={moderateScale(20)}
+                    color={tint.fg}
+                  />
+                </View>
+
+                <View style={styles.rowText}>
+                  <Text style={styles.rowTitle}>{option.display}</Text>
+                  {look?.blurb ? (
+                    <Text style={styles.rowBlurb}>{look.blurb}</Text>
+                  ) : null}
+                </View>
+
+                <View style={[styles.radio, isSelected && styles.radioSelected]}>
+                  {isSelected && <View style={styles.radioDot} />}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      <View
+        style={[styles.footer, { paddingBottom: insets.bottom + verticalScale(16) }]}
+      >
+        <AuthButton
+          label="Continue"
+          withArrow
+          onPress={handleContinue}
+          disabled={!selected}
+        />
       </View>
-    </View>
+    </AuthScaffold>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#1155CC" },
-  topSection: { height: verticalScale(200) },
-  bottomSection: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: moderateScale(24),
-    borderTopRightRadius: moderateScale(24),
-    paddingTop: verticalScale(8),
-    flex: 1,
-  },
-  handleBar: {
-    width: scale(80),
-    height: verticalScale(4),
-    backgroundColor: "#E5E7EB",
-    borderRadius: moderateScale(2),
-    alignSelf: "center",
-    marginBottom: verticalScale(20),
-  },
-  scrollContainer: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingBottom: verticalScale(20) },
-  formContainer: {
+  loading: { flex: 1, alignItems: "center", justifyContent: "center" },
+  list: {
     paddingHorizontal: scale(24),
-    minHeight: verticalScale(360),
+    paddingTop: verticalScale(4),
+    paddingBottom: verticalScale(12),
   },
-  successText: {
-    fontSize: moderateScale(16),
-    color: "#1155CC",
-    textAlign: "center",
-    marginBottom: verticalScale(8),
-    fontFamily: "DMSans_400Regular",
+  error: {
+    fontSize: moderateScale(12.5),
+    fontFamily: AUTH_FONTS.medium,
+    color: AUTH_COLORS.danger,
+    marginBottom: verticalScale(12),
   },
-  title: {
-    fontSize: moderateScale(24),
-    fontFamily: "DMSans_700Bold",
-    color: "#000000",
-    textAlign: "center",
-    marginBottom: verticalScale(8),
-  },
-  subtitle: {
-    fontSize: moderateScale(16),
-    color: "#BCBCBC",
-    textAlign: "center",
-    lineHeight: moderateScale(22),
-    marginBottom: verticalScale(24),
-    fontFamily: "DMSans_400Regular",
-  },
-  sectionTitle: {
-    fontSize: moderateScale(16),
-    fontFamily: "DMSans_400Regular",
-    color: "#111827",
-    marginBottom: verticalScale(14),
-  },
-  optionsContainer: { marginBottom: verticalScale(16) },
-  businessOption: {
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: AUTH_COLORS.field,
+    borderRadius: moderateScale(16),
     borderWidth: 1.5,
-    borderColor: "#E5E7EB",
+    borderColor: "transparent",
+    padding: scale(12),
+    marginBottom: verticalScale(12),
+  },
+  rowSelected: {
+    backgroundColor: AUTH_COLORS.fieldActive,
+    borderColor: AUTH_COLORS.brand,
+  },
+  iconTile: {
+    width: scale(42),
+    height: scale(42),
     borderRadius: moderateScale(12),
-    padding: moderateScale(14),
-    backgroundColor: "#FFFFFF",
-    position: "relative",
-    minHeight: verticalScale(76),
-    marginBottom: verticalScale(10),
-  },
-  selectedOption: {
-    borderColor: "#1155CC",
-    backgroundColor: "#F8FAFC",
-  },
-  businessContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    minHeight: verticalScale(46),
-  },
-  businessInfo: { flex: 1, paddingRight: scale(14) },
-  businessTitle: {
-    fontSize: moderateScale(16),
-    fontFamily: "DMSans_400Regular",
-    color: "#111827",
-    marginBottom: verticalScale(4),
-  },
-  businessDescription: {
-    fontSize: moderateScale(14),
-    color: "#BCBCBC",
-    lineHeight: moderateScale(18),
-    fontFamily: "DMSans_400Regular",
-  },
-  businessIcon: {
-    width: scale(62),
-    height: scale(62),
     justifyContent: "center",
-    alignItems: "center",
   },
-  selectionIndicator: {
-    position: "absolute",
-    top: verticalScale(8),
-    right: scale(8),
-    width: scale(8),
-    height: scale(8),
-    backgroundColor: "#1155CC",
-    borderRadius: moderateScale(4),
+  rowText: { flex: 1, marginLeft: scale(12) },
+  rowTitle: {
+    fontSize: moderateScale(14.5),
+    fontFamily: AUTH_FONTS.bold,
+    color: AUTH_COLORS.text,
   },
-  buttonContainer: {
-    flexDirection: "row",
-    gap: scale(12),
-    paddingHorizontal: scale(24),
-    paddingBottom:
-      Platform.OS === "ios" ? verticalScale(30) : verticalScale(18),
-    backgroundColor: "#FFFFFF",
+  rowBlurb: {
+    fontSize: moderateScale(12),
+    fontFamily: AUTH_FONTS.regular,
+    color: AUTH_COLORS.textMuted,
+    marginTop: verticalScale(2),
   },
-  backButton: {
-    flex: 1,
+  radio: {
+    width: scale(20),
+    height: scale(20),
+    borderRadius: scale(10),
     borderWidth: 1.5,
-    borderColor: "#1155CC",
-    borderRadius: moderateScale(25),
-    paddingVertical: verticalScale(14),
+    borderColor: AUTH_COLORS.border,
     alignItems: "center",
-    minHeight: verticalScale(50),
-  },
-  backButtonText: {
-    color: "#1155CC",
-    fontSize: moderateScale(18),
-    fontFamily: "DMSans_700Bold",
-  },
-  finishButton: {
-    flex: 2,
-    backgroundColor: "#1155CC",
-    borderRadius: moderateScale(25),
-    paddingVertical: verticalScale(14),
-    alignItems: "center",
-    minHeight: verticalScale(50),
-  },
-  finishButtonText: {
-    color: "#FFFFFF",
-    fontSize: moderateScale(14),
-    fontFamily: "DMSans_500Medium",
-  },
-  disabled: { opacity: 0.6 },
-  loadingOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
     justifyContent: "center",
-    alignItems: "center",
-    zIndex: 1000,
   },
-  loadingText: {
-    marginTop: verticalScale(10),
-    fontSize: moderateScale(16),
-    fontFamily: "DMSans_400Regular",
-    color: "#1155CC",
+  radioSelected: { borderColor: AUTH_COLORS.brand },
+  radioDot: {
+    width: scale(10),
+    height: scale(10),
+    borderRadius: scale(5),
+    backgroundColor: AUTH_COLORS.brand,
+  },
+  footer: {
+    paddingHorizontal: scale(24),
+    paddingTop: verticalScale(12),
+    backgroundColor: AUTH_COLORS.sheet,
   },
 });
 

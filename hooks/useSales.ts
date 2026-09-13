@@ -10,7 +10,7 @@ import {
     type PaginatedResponse,
     type ApiSale as Sale,
 } from "@/src/api/sales";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 const normalizeEndpoint = (endpoint: string) =>
   endpoint.startsWith("/api/") ? endpoint.replace(/^\/api/, "") : endpoint;
@@ -49,6 +49,8 @@ export function useSales(params?: SalesQueryParams) {
     queryFn: async () => {
       return listSalesPaginated(params);
     },
+    // Keep prior results while a new search fetches so the page stays steady.
+    placeholderData: keepPreviousData,
   });
 }
 
