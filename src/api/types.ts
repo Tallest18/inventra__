@@ -106,9 +106,18 @@ export interface SubscriptionNotice {
   reminder?: SubscriptionReminder;
   title?: string;
   subtitle?: string;
+  /** e.g. "Free Trial Ending Soon — 7 days left". */
+  banner?: string;
   body?: string;
   note?: string;
   features?: string[];
+  renewal_label?: string;
+  renewal_amount_naira?: number;
+  /** e.g. "₦1,000". */
+  renewal_amount_display?: string;
+  interval?: string;
+  /** e.g. "/ Month". */
+  interval_display?: string;
   cta?: string;
   dismiss?: string;
 }
@@ -159,6 +168,31 @@ export interface StartTrialResponse {
 export interface AuthSessionResponse {
   user: UserProfile;
   tokens: TokenPair;
+}
+
+export type TransferStatus = "pending" | "success" | "expired" | "failed";
+
+/**
+ * A one-time Paystack account number for paying the subscription by bank
+ * transfer. `message` and `subscription` only come back from the status check;
+ * `subscription` only once `paid` is true.
+ */
+export interface TransferPayment {
+  reference: string;
+  status: TransferStatus;
+  paid: boolean;
+  amount_naira: number;
+  /** e.g. "₦1,000". */
+  amount_display: string;
+  account_number: string;
+  account_name: string;
+  bank_name: string;
+  bank_slug: string;
+  expires_at: string;
+  seconds_until_expiry: number;
+  instructions: string;
+  message?: string;
+  subscription?: Subscription;
 }
 
 export interface PaystackInitializeResponse {

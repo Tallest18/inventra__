@@ -13,6 +13,7 @@ import type {
   StartTrialResponse,
   Subscription,
   TokenPair,
+  TransferPayment,
   UserProfile,
 } from "./types";
 
@@ -185,6 +186,31 @@ export async function initializePaystack(payload: {
   const response = await apiClient.post<PaystackInitializeResponse>(
     "/auth/subscription/paystack/initialize/",
     payload,
+  );
+  return response.data;
+}
+
+/**
+ * Issues a one-time account number to pay into. Calling it again while that
+ * account is still valid returns the same one. Send `{}` first — the backend
+ * answers `email_required` only when the account has no email yet.
+ */
+export async function initializeTransfer(payload: {
+  email?: string;
+}): Promise<TransferPayment> {
+  const response = await apiClient.post<TransferPayment>(
+    "/auth/subscription/transfer/initialize/",
+    payload,
+  );
+  return response.data;
+}
+
+/** Checks a transfer with Paystack; activates the subscription once paid. */
+export async function getTransferStatus(
+  reference: string,
+): Promise<TransferPayment> {
+  const response = await apiClient.get<TransferPayment>(
+    `/auth/subscription/transfer/${encodeURIComponent(reference)}/`,
   );
   return response.data;
 }

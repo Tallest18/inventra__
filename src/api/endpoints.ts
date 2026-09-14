@@ -22,6 +22,10 @@ export const SUBSCRIPTION_PAYSTACK_INITIALIZE =
   "/auth/subscription/paystack/initialize/";
 export const SUBSCRIPTION_PAYSTACK_VERIFY =
   "/auth/subscription/paystack/verify/";
+export const SUBSCRIPTION_TRANSFER_INITIALIZE =
+  "/auth/subscription/transfer/initialize/";
+export const SUBSCRIPTION_TRANSFER_STATUS = (reference: string) =>
+  `/auth/subscription/transfer/${reference}/`;
 
 // PRODUCTS
 export const PRODUCTS_CATEGORIES = "/products/categories/";

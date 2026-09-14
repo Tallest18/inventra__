@@ -271,8 +271,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   cta: {
-    height: verticalScale(54),
-    borderRadius: moderateScale(14),
+    height: moderateScale(52),
+    borderRadius: moderateScale(12),
     backgroundColor: AUTH_COLORS.brand,
     alignItems: "center",
     justifyContent: "center",
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
   ctaText: {
     color: AUTH_COLORS.onBrand,
     fontSize: moderateScale(16.5),
-    fontFamily: AUTH_FONTS.bold,
+    fontFamily: AUTH_FONTS.semibold,
   },
   dismiss: { alignItems: "center", paddingVertical: verticalScale(14) },
   dismissInert: { opacity: 0.45 },

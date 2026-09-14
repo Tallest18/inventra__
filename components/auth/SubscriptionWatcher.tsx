@@ -2,18 +2,25 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useSegments } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, Linking } from "react-native";
+import { AppState, Modal } from "react-native";
 
+import { CheckingPaymentScreen } from "@/components/subscription/CheckingPaymentScreen";
+import { EMAIL_PATTERN } from "@/components/subscription/paywallParts";
+import { RenewalReminderSheet } from "@/components/subscription/RenewalReminderSheet";
+import { RenewSubscriptionScreen } from "@/components/subscription/RenewSubscriptionScreen";
+import { SubscriptionExpiredScreen } from "@/components/subscription/SubscriptionExpiredScreen";
+import { SubscriptionRenewedScreen } from "@/components/subscription/SubscriptionRenewedScreen";
 import {
   getAccessToken,
   getSubscription,
-  initializePaystack,
+  getTransferStatus,
+  initializeTransfer,
   onTokensChanged,
   parseApiError,
   setAccessGated,
   startTrial,
 } from "@/src/api";
-import type { OfferContent, Subscription } from "@/src/api/types";
+import type { Subscription, TransferPayment } from "@/src/api/types";
 import { TrialModal } from "./TrialModal";
 
 /**
@@ -41,7 +48,24 @@ const pollDelayFor = (
   return 300_000; // days or months out
 };
 
+/** "I've Made Payment" re-checks this many times before handing back. */
+const CHECK_ATTEMPTS = 5;
+const CHECK_INTERVAL_MS = 3_000;
+/** Quiet re-check while the account details are on screen. */
+const BACKGROUND_CHECK_MS = 10_000;
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 type Mode = "hidden" | "onboarding" | "reminder" | "expired";
+
+/** The payment screens, which sit above whatever `mode` says. */
+type PayStep = "renew" | "checking" | "renewed";
+
+interface HeldTransfer {
+  payment: TransferPayment;
+  /** When it was fetched, so the expiry countdown stays honest. */
+  receivedAt: number;
+}
 
 /** Identifies a reminder step so each one is announced exactly once. */
 const reminderKey = (subscription: Subscription): string | null => {
@@ -54,53 +78,6 @@ const isExpired = (subscription: Subscription): boolean =>
   subscription.expired === true ||
   subscription.status === "expired" ||
   (subscription.trial_started && !subscription.access_active);
-
-const expiredContent = (subscription: Subscription): OfferContent => {
-  const notice = subscription.expired_notice ?? {};
-  const wasPaid = subscription.status === "active";
-  const naira = subscription.amount_naira ?? 1000;
-  // Billing period comes from the server ("monthly" -> "month"); never assume
-  // it. These strings only ever show if expired_notice omits them.
-  const per = (subscription.interval ?? "").replace(/ly$/, "") || "period";
-
-  return {
-    title: notice.title ?? "Your access has ended",
-    subtitle:
-      notice.subtitle ??
-      (subscription.expired_label
-        ? `Expired ${subscription.expired_label}`
-        : wasPaid
-          ? "Subscription expired"
-          : "Free trial expired"),
-    body:
-      notice.body ??
-      `Your ${wasPaid ? "subscription" : "free trial"} has ended. Subscribe for ₦${naira} per ${per} to keep using Inventra.`,
-    note: notice.note ?? "Your data is safe and waiting for you.",
-    features: notice.features ?? [],
-    cta: notice.cta ?? `Subscribe — ₦${naira}/${per}`,
-    dismiss: notice.dismiss ?? "Not Now",
-  };
-};
-
-const reminderContent = (subscription: Subscription): OfferContent => {
-  const notice = subscription.ending_soon_notice ?? {};
-  const label = notice.reminder?.label ?? subscription.time_left_label ?? "";
-  const wasPaid = subscription.status === "active";
-
-  return {
-    title: notice.title ?? "Heads up",
-    subtitle:
-      notice.subtitle ??
-      (label ? `${label} left` : "Your access is ending soon"),
-    body:
-      notice.body ??
-      `You have ${label || "a little time"} left on your ${wasPaid ? "subscription" : "free trial"}. Renew before it ends to keep everything running.`,
-    note: notice.note,
-    features: notice.features ?? [],
-    cta: notice.cta ?? "Got it",
-    dismiss: notice.dismiss ?? "Close",
-  };
-};
 
 /**
  * Watches /api/auth/subscription/ for the whole app, so the trial sheet can
@@ -118,8 +95,17 @@ export const SubscriptionWatcher: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Last reminder step seen, and the one the user closed, so a dismissed
-  // reminder does not immediately reappear on the next poll.
+  // Payment state. Kept apart from `mode`, which the poll loop re-derives on
+  // every tick and would otherwise wipe mid-payment.
+  const [step, setStep] = useState<PayStep | null>(null);
+  const stepRef = useRef<PayStep | null>(null);
+  const [transfer, setTransfer] = useState<HeldTransfer | null>(null);
+  const [payMessage, setPayMessage] = useState<string | null>(null);
+  const [renewed, setRenewed] = useState<Subscription | null>(null);
+  const [emailPrompt, setEmailPrompt] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const statusInFlight = useRef(false);
+
   const segments = useSegments();
 
   // Tokens are stored back at verify-otp, so a session exists while the user is
@@ -127,6 +113,8 @@ export const SubscriptionWatcher: React.FC = () => {
   // could surface in the middle of onboarding.
   const inAuthFlow = segments[0] === "(Auth)" || segments[0] === "(Onboarding)";
 
+  // Last reminder step seen, and the one the user closed, so a dismissed
+  // reminder does not immediately reappear on the next poll.
   const seenReminder = useRef<string | null>(null);
   const dismissedReminder = useRef<string | null>(null);
   const hasSession = useRef(false);
@@ -136,6 +124,20 @@ export const SubscriptionWatcher: React.FC = () => {
   // through this rather than a bare check, or the loop keeps running on a
   // cadence derived from stale data and can skip a reminder step entirely.
   const refresh = useRef<() => void>(() => {});
+
+  const goTo = useCallback((next: PayStep | null) => {
+    stepRef.current = next;
+    setStep(next);
+  }, []);
+
+  const resetPayment = useCallback(() => {
+    goTo(null);
+    setTransfer(null);
+    setPayMessage(null);
+    setRenewed(null);
+    setEmailPrompt(null);
+    setEmail("");
+  }, [goTo]);
 
   const evaluate = useCallback((next: Subscription) => {
     setSubscription(next);
@@ -155,6 +157,10 @@ export const SubscriptionWatcher: React.FC = () => {
       return;
     }
 
+    // Access is back (paid, or the Paystack webhook landed first). The paywall
+    // has nothing more to say.
+    setMode((current) => (current === "expired" ? "hidden" : current));
+
     const key = reminderKey(next);
     if (key && key !== seenReminder.current) {
       seenReminder.current = key;
@@ -173,6 +179,8 @@ export const SubscriptionWatcher: React.FC = () => {
     hasSession.current = !!token;
     if (!token) {
       setMode("hidden");
+      // A payment in progress belongs to the account that started it.
+      resetPayment();
       return null;
     }
 
@@ -184,7 +192,7 @@ export const SubscriptionWatcher: React.FC = () => {
       // A failed probe must never interrupt whatever the user is doing.
       return null;
     }
-  }, [evaluate]);
+  }, [evaluate, resetPayment]);
 
   useEffect(() => {
     let cancelled = false;
@@ -230,34 +238,183 @@ export const SubscriptionWatcher: React.FC = () => {
     if (!inAuthFlow) refresh.current();
   }, [inAuthFlow]);
 
-  const handleStart = async () => {
+  // ── Payment ────────────────────────────────────────────────────────────────
+
+  const markPaid = useCallback(
+    (next?: Subscription) => {
+      setRenewed(next ?? null);
+      if (next) setSubscription(next);
+      setAccessGated(false);
+      setTransfer(null);
+      setPayMessage(null);
+      goTo("renewed");
+      queryClient.invalidateQueries();
+      refresh.current();
+    },
+    [goTo, queryClient],
+  );
+
+  /** One status call. Moves to the success screen when the money is in. */
+  const fetchStatus = useCallback(
+    async (reference: string): Promise<TransferPayment> => {
+      const payment = await getTransferStatus(reference);
+      if (payment.paid || payment.status === "success") {
+        markPaid(payment.subscription);
+      } else {
+        setTransfer({ payment, receivedAt: Date.now() });
+      }
+      return payment;
+    },
+    [markPaid],
+  );
+
+  // While the account details are showing, keep an eye out quietly so a
+  // transfer that lands is noticed without the button being pressed.
+  const pendingReference =
+    step === "renew" && transfer?.payment.status === "pending"
+      ? transfer.payment.reference
+      : null;
+
+  useEffect(() => {
+    if (!pendingReference) return;
+    const tick = async () => {
+      if (statusInFlight.current || stepRef.current !== "renew") return;
+      statusInFlight.current = true;
+      try {
+        await fetchStatus(pendingReference);
+      } catch {
+        // Silent: the user can still press "I've Made Payment".
+      } finally {
+        statusInFlight.current = false;
+      }
+    };
+    const timer = setInterval(tick, BACKGROUND_CHECK_MS);
+    // Returning from the bank app is the likeliest moment it has just landed.
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") tick();
+    });
+    return () => {
+      clearInterval(timer);
+      sub.remove();
+    };
+  }, [pendingReference, fetchStatus]);
+
+  /** Sends `{}` first, and an email only once the backend has asked for one. */
+  const startPayment = async () => {
     if (busy) return;
+    const fromRenew = stepRef.current === "renew";
+    const showError = fromRenew ? setPayMessage : setError;
+
+    const asksForEmail = emailPrompt !== null;
+    const trimmed = email.trim();
+    if (asksForEmail && !EMAIL_PATTERN.test(trimmed)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
     setBusy(true);
     setError(null);
-
+    setPayMessage(null);
     try {
-      if (mode === "onboarding") {
-        await startTrial();
-        setMode("hidden");
-        await queryClient.invalidateQueries();
-        // The trial now has a real countdown, so re-derive the poll cadence
-        // immediately instead of coasting on the pre-trial schedule.
-        refresh.current();
+      const payment = await initializeTransfer(
+        asksForEmail ? { email: trimmed } : {},
+      );
+      setEmailPrompt(null);
+      setEmail("");
+      if (payment.paid) {
+        markPaid(payment.subscription);
         return;
       }
-
-      if (mode === "expired") {
-        const { authorization_url } = await initializePaystack({});
-        await Linking.openURL(authorization_url);
-        return;
-      }
-
-      // A reminder is informational — acknowledging it just closes the sheet.
-      dismissedReminder.current = seenReminder.current;
-      setMode("hidden");
+      setTransfer({ payment, receivedAt: Date.now() });
+      goTo("renew");
     } catch (err: any) {
       const info = parseApiError(err, "Something went wrong. Please try again.");
 
+      if (info.code === "already_subscribed") {
+        markPaid();
+        return;
+      }
+
+      if (!fromRenew && (info.code === "email_required" || info.fields.email)) {
+        // First time: reveal the field with the server's reason as its hint.
+        // After that: the server rejected what was typed, so say why.
+        if (emailPrompt === null) {
+          setEmailPrompt(info.fields.email ?? info.message);
+        } else {
+          setError(info.fields.email ?? info.message);
+        }
+        return;
+      }
+
+      showError(info.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleMadePayment = async () => {
+    const reference = transfer?.payment.reference;
+    if (!reference) return;
+
+    setPayMessage(null);
+    goTo("checking");
+
+    let latest: TransferPayment | null = null;
+    let failure: string | null = null;
+
+    for (let attempt = 0; attempt < CHECK_ATTEMPTS; attempt++) {
+      if (attempt > 0) await wait(CHECK_INTERVAL_MS);
+      // The quiet background check may have got there first.
+      if (stepRef.current !== "checking") return;
+      try {
+        latest = await fetchStatus(reference);
+        failure = null;
+      } catch (err) {
+        failure = parseApiError(err, "We couldn't check your payment. Please try again.").message;
+      }
+      if (latest?.paid || latest?.status === "success") return;
+      // Expired or rejected won't change by waiting.
+      if (latest && latest.status !== "pending") break;
+    }
+
+    if (stepRef.current !== "checking") return;
+    setPayMessage(
+      failure ??
+        (latest?.status === "pending"
+          ? "We haven't received your transfer yet. It can take a few minutes to arrive — we'll keep checking."
+          : null),
+    );
+    goTo("renew");
+  };
+
+  const handleBackFromRenew = () => {
+    setTransfer(null);
+    setPayMessage(null);
+    goTo(null);
+  };
+
+  const handleContinue = () => {
+    dismissedReminder.current = seenReminder.current;
+    resetPayment();
+    setMode("hidden");
+    refresh.current();
+  };
+
+  // ── Trial / reminder ───────────────────────────────────────────────────────
+
+  const handleStartTrial = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await startTrial();
+      setMode("hidden");
+      await queryClient.invalidateQueries();
+      // The trial now has a real countdown, so re-derive the poll cadence
+      // immediately instead of coasting on the pre-trial schedule.
+      refresh.current();
+    } catch (err: any) {
+      const info = parseApiError(err, "Something went wrong. Please try again.");
       if (
         info.code === "trial_already_active" ||
         info.code === "already_subscribed"
@@ -266,43 +423,103 @@ export const SubscriptionWatcher: React.FC = () => {
         await queryClient.invalidateQueries();
         return;
       }
-      setError(
-        info.fields.email
-          ? "Add an email address to your profile before paying."
-          : info.message,
-      );
+      setError(info.message);
     } finally {
       setBusy(false);
     }
   };
 
-  const handleDismiss = () => {
+  const handleDismissReminder = () => {
     dismissedReminder.current = seenReminder.current;
     setError(null);
+    setEmailPrompt(null);
+    setEmail("");
     setMode("hidden");
   };
 
   // Never interrupt the auth flow itself.
-  if (inAuthFlow || mode === "hidden" || !subscription) return null;
+  if (inAuthFlow || !subscription) return null;
 
-  const content =
-    mode === "onboarding"
-      ? (subscription.trial_offer ?? null)
-      : mode === "expired"
-        ? expiredContent(subscription)
-        : reminderContent(subscription);
+  if (!step && mode === "onboarding") {
+    return (
+      <TrialModal
+        visible
+        offer={subscription.trial_offer ?? null}
+        loading={busy}
+        error={error}
+        onStart={handleStartTrial}
+      />
+    );
+  }
 
+  let content: React.ReactNode = null;
+  let onBackButton: (() => void) | undefined;
+
+  if (step === "renew" && transfer) {
+    content = (
+      <RenewSubscriptionScreen
+        transfer={transfer.payment}
+        receivedAt={transfer.receivedAt}
+        interval={subscription.interval}
+        loading={busy}
+        message={payMessage}
+        onBack={handleBackFromRenew}
+        onMadePayment={handleMadePayment}
+        onNewAccount={startPayment}
+      />
+    );
+    onBackButton = handleBackFromRenew;
+  } else if (step === "checking") {
+    content = <CheckingPaymentScreen />;
+  } else if (step === "renewed") {
+    content = (
+      <SubscriptionRenewedScreen
+        subscription={renewed ?? subscription}
+        onContinue={handleContinue}
+      />
+    );
+  } else if (mode === "expired") {
+    content = (
+      <SubscriptionExpiredScreen
+        subscription={subscription}
+        loading={busy}
+        error={error}
+        emailPrompt={emailPrompt}
+        email={email}
+        onEmailChange={setEmail}
+        onPay={startPayment}
+      />
+    );
+  } else if (mode === "reminder") {
+    content = (
+      <RenewalReminderSheet
+        subscription={subscription}
+        loading={busy}
+        error={error}
+        emailPrompt={emailPrompt}
+        email={email}
+        onEmailChange={setEmail}
+        onPay={startPayment}
+        onDismiss={handleDismissReminder}
+      />
+    );
+    onBackButton = handleDismissReminder;
+  }
+
+  if (!content) return null;
+
+  // One modal for every step, so moving between the sheet and the full-screen
+  // pages swaps its contents instead of stacking modals (which iOS refuses to
+  // present while another is still dismissing).
   return (
-    <TrialModal
+    <Modal
       visible
-      offer={content}
-      loading={busy}
-      error={error}
-      onStart={handleStart}
-      // Only a live subscription may be closed. A trial that was never started
-      // and an expired one are both forced.
-      dismissible={mode === "reminder"}
-      onDismiss={handleDismiss}
-    />
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={() => onBackButton?.()}
+    >
+      {content}
+    </Modal>
   );
 };
