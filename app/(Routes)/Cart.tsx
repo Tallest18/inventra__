@@ -20,7 +20,7 @@ import { styles } from "./components/Cart.styles";
 
 // Manual dashed separator: RN's `borderStyle: "dashed"` renders solid on iOS
 // unless borderRadius > 0 (which curves the edges), so we draw the line from
-// small segments instead — always straight and dashed across platforms.
+// small segments instead  always straight and dashed across platforms.
 const DASH_COUNT = Math.ceil(Dimensions.get("window").width / 10);
 const DashedSeparator: React.FC = () => (
   <View style={styles.dashedSeparator}>
@@ -217,7 +217,7 @@ const Cart: React.FC = () => {
       const stock = item.product?.unitsInStock ?? 0;
       const name = item.product?.name ?? "This product";
       if (stock <= 0) {
-        showToast(`${name} is out of stock — remove it to continue`, "warning");
+        showToast(`${name} is out of stock  remove it to continue`, "warning");
         return;
       }
       if (item.quantity > stock) {

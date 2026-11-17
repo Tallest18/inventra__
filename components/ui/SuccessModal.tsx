@@ -1,6 +1,7 @@
+import { AnimatedModal, MODAL_CONTENT_RESET } from "@/components/ui/AnimatedModal";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface SuccessModalProps {
   visible: boolean;
@@ -21,13 +22,11 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
   buttonText = "OK",
   onClose,
 }) => (
-  <Modal
+  <AnimatedModal
     visible={visible}
-    transparent
-    animationType="fade"
     onRequestClose={onClose}
   >
-    <View style={styles.overlay}>
+    <View style={[styles.overlay, MODAL_CONTENT_RESET]}>
       <View style={styles.card}>
         <View style={styles.iconWrap}>
           <Ionicons name={iconName} size={36} color={iconColor} />
@@ -39,7 +38,7 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
         </TouchableOpacity>
       </View>
     </View>
-  </Modal>
+  </AnimatedModal>
 );
 
 const styles = StyleSheet.create({

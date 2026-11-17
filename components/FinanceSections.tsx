@@ -8,7 +8,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { LineChart } from "react-native-chart-kit";
+import TrendChart from "./charts/TrendChart";
+import type { Period } from "../app/types/finance.types";
+import { DateRange, rangeLabel, summaryTitle } from "../utils/periodRange";
 import {
   ChartData,
   DailySummary,
@@ -30,172 +32,86 @@ interface SummaryCardsProps {
   financialSummary: FinancialSummary;
 }
 
+// Change badge colour follows direction: increase = green, decrease = red,
+// on every card (including cost). No baseline or 0% -> grey.
+const BADGE = {
+  good: { bg: "#DCFCE7", fg: "#15803D" },
+  bad: { bg: "#FEE2E2", fg: "#B91C1C" },
+  neutral: { bg: "#F2F4F7", fg: "#667085" },
+} as const;
+
+const ChangeBadge: React.FC<{ change: number | null }> = ({ change }) => {
+  const flat = change == null || Math.abs(change) < 0.05;
+  const up = !flat && (change as number) > 0;
+  const tone = flat ? BADGE.neutral : up ? BADGE.good : BADGE.bad;
+  const label = change == null
+    ? "No data"
+    : flat
+      ? "0%"
+      : `${up ? "+" : "−"}${Math.abs(change).toLocaleString("en-US", { maximumFractionDigits: 1 })}%`;
+  return (
+    <View
+      style={[styles.changeIndicator, styles.changeBadge, { backgroundColor: tone.bg }]}
+      accessibilityLabel={
+        change == null ? "No previous period to compare" : `${label} versus the previous period`
+      }
+    >
+      <Ionicons
+        name={flat ? "remove-outline" : up ? "trending-up" : "trending-down"}
+        size={moderateScale(11)}
+        color={tone.fg}
+      />
+      <Text style={[styles.changeText, { color: tone.fg }]} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+};
+
 export const SummaryCards: React.FC<SummaryCardsProps> = ({
   financialSummary,
-}) => (
-  <View style={styles.summaryContainer}>
-    <View style={styles.summaryRow}>
-      <View style={[styles.summaryCard, styles.profitCard]}>
-        <Text style={styles.summaryLabel}>Total Sales</Text>
-        <Text
-          style={styles.summaryValue}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-        >
-          {formatCurrency(financialSummary.totalSales)}
-        </Text>
-        <View
-          style={[
-            styles.changeIndicator,
-            {
-              backgroundColor: "#DCFCE7",
-              paddingVertical: moderateScale(2),
-              borderRadius: moderateScale(10),
-              width: moderateScale(60),
-            },
-          ]}
-        >
-          <Ionicons
-            name={
-              financialSummary.totalSalesChange >= 0
-                ? "trending-up"
-                : "trending-down"
-            }
-            size={moderateScale(11)}
-            color={
-              financialSummary.totalSalesChange >= 0 ? "#10B981" : "#EF4444"
-            }
-          />
-          <Text
-            style={[
-              styles.changeText,
-              {
-                color:
-                  financialSummary.totalSalesChange >= 0
-                    ? "#10B981"
-                    : "#EF4444",
-              },
-            ]}
-          >
-            {financialSummary.totalSalesChange >= 0 ? "+" : ""}
-            {financialSummary.totalSalesChange}%
-          </Text>
-        </View>
-      </View>
-
-      <View style={[styles.summaryCard, styles.revenueCard]}>
-        <Text style={styles.summaryLabel}>Total Cost</Text>
-        <Text
-          style={styles.summaryValue}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-        >
-          {formatCurrency(financialSummary.totalCost)}
-        </Text>
-        <View
-          style={[
-            styles.changeIndicator,
-            {
-              backgroundColor: "#FFEDD4",
-              paddingVertical: moderateScale(2),
-              borderRadius: moderateScale(10),
-              width: moderateScale(50),
-            },
-          ]}
-        >
-          <Ionicons
-            name={
-              financialSummary.totalCostChange >= 0
-                ? "trending-up"
-                : "trending-down"
-            }
-            size={moderateScale(11)}
-            color={
-              financialSummary.totalCostChange >= 0 ? "#10B981" : "#EF4444"
-            }
-          />
-          <Text
-            style={[
-              styles.changeText,
-              {
-                color:
-                  financialSummary.totalCostChange >= 0 ? "#10B981" : "#EF4444",
-              },
-            ]}
-          >
-            {financialSummary.totalCostChange >= 0 ? "+" : ""}
-            {financialSummary.totalCostChange}%
-          </Text>
-        </View>
-      </View>
-
-      <View style={[styles.summaryCard, styles.expenseCard]}>
-        <Text style={styles.summaryLabel}>Total Profit</Text>
-        <Text
-          style={styles.summaryValue}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-        >
-          {formatCurrency(financialSummary.totalProfit)}
-        </Text>
-        <View
-          style={[
-            styles.changeIndicator,
-            {
-              backgroundColor: "#DCFCE7",
-              paddingVertical: moderateScale(2),
-              borderRadius: moderateScale(10),
-              width: moderateScale(50),
-            },
-          ]}
-        >
-          <Ionicons
-            name={
-              financialSummary.totalProfitChange >= 0
-                ? "trending-up"
-                : "trending-down"
-            }
-            size={moderateScale(11)}
-            color={
-              financialSummary.totalProfitChange >= 0 ? "#10B981" : "#EF4444"
-            }
-          />
-          <Text
-            style={[
-              styles.changeText,
-              {
-                color:
-                  financialSummary.totalProfitChange >= 0
-                    ? "#10B981"
-                    : "#EF4444",
-              },
-            ]}
-          >
-            {financialSummary.totalProfitChange >= 0 ? "+" : ""}
-            {financialSummary.totalProfitChange}%
-          </Text>
-        </View>
+}) => {
+  const cards = [
+    { label: "Total Sales", value: financialSummary.totalSales, change: financialSummary.totalSalesChange, style: styles.profitCard },
+    { label: "Total Cost", value: financialSummary.totalCost, change: financialSummary.totalCostChange, style: styles.revenueCard },
+    { label: "Total Profit", value: financialSummary.totalProfit, change: financialSummary.totalProfitChange, style: styles.expenseCard },
+  ];
+  return (
+    <View style={styles.summaryContainer}>
+      <View style={styles.summaryRow}>
+        {cards.map((card) => (
+          <View key={card.label} style={[styles.summaryCard, card.style]}>
+            <Text style={styles.summaryLabel}>{card.label}</Text>
+            <Text style={styles.summaryValue} numberOfLines={1} adjustsFontSizeToFit>
+              {formatCurrency(card.value)}
+            </Text>
+            <ChangeBadge change={card.change} />
+          </View>
+        ))}
       </View>
     </View>
-  </View>
-);
+  );
+};
 
 // ─── Daily Summary ────────────────────────────────────────────────────────────
 
 interface DailySummaryCardProps {
   dailySummary: DailySummary;
-  selectedDate: Date;
+  /** Today -> Daily, Week -> Weekly, Month -> Monthly Summary. */
+  period: Period;
+  range: DateRange;
   onOpenDatePicker: () => void;
 }
 
 export const DailySummaryCard: React.FC<DailySummaryCardProps> = ({
   dailySummary,
-  selectedDate,
+  period,
+  range,
   onOpenDatePicker,
 }) => (
   <View style={styles.section}>
     <View style={styles.dailySummaryHeader}>
-      <Text style={styles.sectionTitle}>Daily Summary</Text>
+      <Text style={styles.sectionTitle}>{summaryTitle(period)}</Text>
       <TouchableOpacity
         style={styles.dateSelector}
         onPress={onOpenDatePicker}
@@ -207,7 +123,7 @@ export const DailySummaryCard: React.FC<DailySummaryCardProps> = ({
           size={moderateScale(13)}
           color="#1155CC"
         />
-        <Text style={styles.dateText}>{formatDateLabel(selectedDate)}</Text>
+        <Text style={styles.dateText} numberOfLines={1}>{rangeLabel(period, range)}</Text>
         <Ionicons
           name="chevron-down"
           size={moderateScale(13)}
@@ -259,59 +175,83 @@ export const DailySummaryCard: React.FC<DailySummaryCardProps> = ({
 
 interface TopProductsProps {
   topProducts: TopProduct[];
+  targetProduct?: string;
+  onLayout?: (e: any) => void;
 }
 
 export const TopProductsSection: React.FC<TopProductsProps> = ({
   topProducts,
+  targetProduct,
+  onLayout,
 }) => {
   if (topProducts.length === 0) return null;
   return (
-    <View style={styles.section}>
+    <View style={styles.section} onLayout={onLayout}>
       <Text style={styles.sectionTitle}>Top Performing Products</Text>
       <View style={styles.listContainer}>
-        {topProducts.map((product, index) => (
-          <View key={index} style={styles.productCard}>
-            <View style={styles.productIcon}>
-              {product.image_url ? (
-                <Image
-                  source={{ uri: product.image_url }}
-                  style={styles.productImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <Ionicons
-                  name="cube-outline"
-                  size={moderateScale(20)}
-                  color="#6B7280"
-                />
-              )}
+        {topProducts.map((product, index) => {
+          const isTargeted = Boolean(
+            targetProduct &&
+              (String(product.product_id) === String(targetProduct) ||
+                product.product_name.toLowerCase().includes(targetProduct.toLowerCase()) ||
+                targetProduct.toLowerCase().includes(product.product_name.toLowerCase())),
+          );
+
+          return (
+            <View
+              key={index}
+              style={[
+                styles.productCard,
+                isTargeted && styles.focusedProductCard,
+              ]}
+            >
+              <View style={styles.productIcon}>
+                {product.image_url ? (
+                  <Image
+                    source={{ uri: product.image_url }}
+                    style={styles.productImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Ionicons
+                    name="cube-outline"
+                    size={moderateScale(20)}
+                    color="#6B7280"
+                  />
+                )}
+              </View>
+              <View style={styles.productInfo}>
+                <Text style={styles.productName} numberOfLines={1}>
+                  {product.product_name}
+                </Text>
+                <Text style={styles.productQuantity}>
+                  Sold: {product.units_sold} units
+                </Text>
+              </View>
+              <View style={styles.productRevenue}>
+                <Text
+                  style={styles.productRevenueText}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  {formatCurrency(product.profit)}
+                </Text>
+                <Text style={styles.productRevenueLabel}>Profit</Text>
+              </View>
             </View>
-            <View style={styles.productInfo}>
-              <Text style={styles.productName} numberOfLines={1}>
-                {product.product_name}
-              </Text>
-              <Text style={styles.productQuantity}>
-                Sold: {product.units_sold} units
-              </Text>
-            </View>
-            <View style={styles.productRevenue}>
-              <Text
-                style={styles.productRevenueText}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {formatCurrency(product.profit)}
-              </Text>
-              <Text style={styles.productRevenueLabel}>Profit</Text>
-            </View>
-          </View>
-        ))}
+          );
+        })}
       </View>
     </View>
   );
 };
 
 // ─── Slow Moving Stock ────────────────────────────────────────────────────────
+
+const truncateText = (text?: string, maxLength = 20): string => {
+  if (!text) return "";
+  return text.length > maxLength ? `${text.slice(0, maxLength).trim()}...` : text;
+};
 
 interface SlowMovingStockProps {
   slowMovingStock: SlowMovingProduct[];
@@ -346,8 +286,8 @@ export const SlowMovingStockSection: React.FC<SlowMovingStockProps> = ({
                 )}
               </View>
               <View style={styles.slowStockInfo}>
-                <Text style={styles.slowStockName} numberOfLines={1}>
-                  {item.product_name}
+                <Text style={styles.slowStockName} numberOfLines={1} ellipsizeMode="tail">
+                  {truncateText(item.product_name, 20)}
                 </Text>
                 <Text style={styles.slowStockDetail}>
                   {item.units_sold} units sold
@@ -421,37 +361,15 @@ export const SalesTrendChart: React.FC<SalesTrendChartProps> = ({
   <View style={styles.section}>
     <Text style={styles.sectionTitle}>Sales & Profit Trends</Text>
     <View style={styles.chartCard}>
-      <View style={styles.chartLegend}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: "#1155CC" }]} />
-          <Text style={styles.legendText}>Sales</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: "#FBBF24" }]} />
-          <Text style={styles.legendText}>Profit</Text>
-        </View>
-      </View>
-      <LineChart
-        data={chartData}
-        width={screenWidth - H_PAD * 2 - scale(32)}
-        height={220}
-        chartConfig={{
-          backgroundColor: "#ffffff",
-          backgroundGradientFrom: "#ffffff",
-          backgroundGradientTo: "#ffffff",
-          decimalPlaces: 0,
-          color: (opacity = 1) => `rgba(32, 70, 174, ${opacity})`,
-          labelColor: (opacity = 1) => `rgba(107, 114, 128, ${opacity})`,
-          style: { borderRadius: moderateScale(16) },
-          propsForDots: { r: "5", strokeWidth: "2", stroke: "#fff" },
-        }}
-        bezier
-        style={styles.chart}
-        withInnerLines
-        withOuterLines
-        withVerticalLines={false}
-        withHorizontalLines
+      {/* Responsive SVG chart: fits its card, short labels, tap for values. */}
+      <TrendChart
+        labels={chartData.labels}
+        series={[
+          { name: "Sales", color: "#1155CC", data: chartData.datasets[0]?.data ?? [], area: true },
+          { name: "Profit", color: "#C27C00", data: chartData.datasets[1]?.data ?? [] },
+        ]}
       />
+      <Text style={styles.chartHint}>Tap or slide across the chart to see each point.</Text>
     </View>
   </View>
 );
@@ -474,8 +392,23 @@ export const SeasonalInsightsSection: React.FC<SeasonalInsightsProps> = ({
           <View key={index} style={styles.insightCard}>
             <View style={styles.insightHeader}>
               <Text style={styles.insightMonth}>{insight.month}</Text>
-              <View style={styles.performanceBadge}>
-                <Text style={styles.performanceText}>
+              {/* Rise green, fall red (e.g. a "Quiet Month" is negative). */}
+              <View
+                style={[
+                  styles.performanceBadge,
+                  String(insight.performance).trim().startsWith("-") && {
+                    backgroundColor: BADGE.bad.bg,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.performanceText,
+                    String(insight.performance).trim().startsWith("-") && {
+                      color: BADGE.bad.fg,
+                    },
+                  ]}
+                >
                   {insight.performance}
                 </Text>
               </View>
@@ -493,28 +426,55 @@ export const SeasonalInsightsSection: React.FC<SeasonalInsightsProps> = ({
 
 interface MonthlyReportCardProps {
   monthlyReport: MonthlyReport;
+  /** Month the report covers; picked from a bottom sheet. */
+  reportMonth: DateRange;
+  onOpenMonthPicker: () => void;
   pdfLoading: boolean;
   onDownload: () => void;
 }
 
 export const MonthlyReportCard: React.FC<MonthlyReportCardProps> = ({
   monthlyReport,
+  reportMonth,
+  onOpenMonthPicker,
   pdfLoading,
   onDownload,
-}) => (
+}) => {
+  const empty = monthlyReport.status === "no_data";
+  return (
   <View style={styles.section}>
-    <Text style={styles.sectionTitle}>Monthly Report</Text>
+    <View style={styles.dailySummaryHeader}>
+      <Text style={styles.sectionTitle}>Monthly Report</Text>
+      {/* Month selector: opens the months-of-the-year sheet. */}
+      <TouchableOpacity
+        style={styles.dateSelector}
+        onPress={onOpenMonthPicker}
+        activeOpacity={0.7}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        accessibilityLabel="Choose report month"
+      >
+        <Ionicons name="calendar-outline" size={moderateScale(13)} color="#1155CC" />
+        <Text style={styles.dateText} numberOfLines={1}>
+          {rangeLabel("Month", reportMonth)}
+        </Text>
+        <Ionicons name="chevron-down" size={moderateScale(13)} color="#1155CC" />
+      </TouchableOpacity>
+    </View>
     <View style={styles.monthlyReportCard}>
       <View style={styles.monthlyReportHeader}>
         <Text style={styles.monthlyReportMonth} numberOfLines={1}>
           {monthlyReport.month}
         </Text>
-        <View style={styles.readyBadge}>
-          <Text style={styles.readyBadgeText}>Ready</Text>
+        <View style={[styles.readyBadge, empty && { backgroundColor: "#F2F4F7" }]}>
+          <Text style={[styles.readyBadgeText, empty && { color: "#667085" }]}>
+            {empty ? "No sales" : "Ready"}
+          </Text>
         </View>
       </View>
       <Text style={styles.monthlyReportSubtitle}>
-        Your monthly financial report is ready
+        {empty
+          ? "No sales were recorded in this month"
+          : "Your monthly financial report is ready"}
       </Text>
       <View style={styles.monthlyReportStats}>
         {[
@@ -535,9 +495,9 @@ export const MonthlyReportCard: React.FC<MonthlyReportCardProps> = ({
         ))}
       </View>
       <TouchableOpacity
-        style={styles.downloadButton}
+        style={[styles.downloadButton, empty && { opacity: 0.45 }]}
         onPress={onDownload}
-        disabled={pdfLoading}
+        disabled={pdfLoading || empty}
       >
         {pdfLoading ? (
           <ActivityIndicator size="small" color="#FFFFFF" />
@@ -554,4 +514,5 @@ export const MonthlyReportCard: React.FC<MonthlyReportCardProps> = ({
       </TouchableOpacity>
     </View>
   </View>
-);
+  );
+};

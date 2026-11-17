@@ -1,9 +1,13 @@
 // app/(Auth)/_layout.tsx
-import { Stack } from "expo-router";
+import {
+  AnimatedStack as Stack,
+  OVERLAY_ROUTE,
+  PAGE_TRANSITION,
+} from "@/components/navigation/AnimatedStack";
 
 export default function AuthLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={PAGE_TRANSITION}>
       <Stack.Screen name="WelcomeScreen" />
       <Stack.Screen name="WelcomeBackScreen" />
       <Stack.Screen name="VerificationScreen" />

@@ -3,6 +3,7 @@ import {
     NOTIFICATION,
     NOTIFICATIONS,
     NOTIFICATIONS_MARK_ALL_READ,
+    NOTIFICATIONS_POPUPS,
     NOTIFICATIONS_UNREAD_COUNT,
 } from "./endpoints";
 
@@ -14,6 +15,8 @@ export interface ApiNotification {
   message?: string;
   status?: "New" | "Read" | "Archived" | string;
   is_read?: boolean;
+  is_popup?: boolean;
+  urgency?: "normal" | "urgent" | string;
   inventoryId?: number | string | null;
   inventory_name?: string | null;
   remainingStock?: number | string | null;
@@ -90,6 +93,13 @@ export async function getUnreadNotificationsCount(): Promise<{
 }> {
   const response = await apiClient.get<{ unread_count: number }>(
     normalizeApiPath(NOTIFICATIONS_UNREAD_COUNT),
+  );
+  return response.data;
+}
+
+export async function getPopupNotifications(): Promise<ApiNotification[]> {
+  const response = await apiClient.get<ApiNotification[]>(
+    normalizeApiPath(NOTIFICATIONS_POPUPS),
   );
   return response.data;
 }

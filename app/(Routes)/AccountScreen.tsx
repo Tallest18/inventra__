@@ -3,13 +3,18 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
+  Alert,
   Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width, height } = Dimensions.get("window");
 const clamp = (value: number, min: number, max: number) =>
@@ -22,52 +27,89 @@ const moderateScale = (size: number, factor = 0.5) =>
   size + (scale(size) - size) * factor;
 
 const AccountScreen = () => {
-  const router = useRouter(); // Use useRouter for Expo Router navigation
-  const [username, setUsername] = useState("");
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
+  const handleSave = () => {
+    if (!fullName.trim()) {
+      Alert.alert("Missing Information", "Please enter your full name.");
+      return;
+    }
+    if (email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim())) {
+        Alert.alert("Invalid Email", "Please enter a valid email address.");
+        return;
+      }
+    }
+    if (password && password.length < 4) {
+      Alert.alert("Invalid Password", "Password must be at least 4 characters long.");
+      return;
+    }
+    Alert.alert("Success", "Account settings saved successfully.");
+    router.back();
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.headerText}>Account</Text>
-
-      <Text style={styles.label}>Full Name</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Full Name"
-        value={username}
-        onChangeText={setUsername}
-      />
-
-      <Text style={styles.label}>Email</Text>
-      <View style={styles.passwordContainer}>
-        <TextInput
-          style={styles.passwordInput}
-          placeholder="name@Example"
-          value={username}
-          onChangeText={setPassword}
-        />
-      </View>
-
-      <Text style={styles.label}>Password</Text>
-      <View style={styles.passwordContainer}>
-        <TextInput
-          style={styles.passwordInput}
-          placeholder="Change password"
-          secureTextEntry={!showPassword}
-          value={password}
-          onChangeText={setPassword}
-        />
-      </View>
-
-      <TouchableOpacity
-        style={styles.signUpButton}
-        // Navigate to the correct HomeScreen route within the (main) group
-        onPress={() => router.push("./(Main)/HomeScreen")}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{
+          paddingBottom: 120 + insets.bottom,
+          flexGrow: 1,
+        }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.signUpButtonText}>Save Changes</Text>
-      </TouchableOpacity>
-    </View>
+        <Text style={styles.headerText}>Account</Text>
+
+        <Text style={styles.label}>Full Name</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Full Name"
+          value={fullName}
+          onChangeText={setFullName}
+        />
+
+        <Text style={styles.label}>Email</Text>
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="name@example.com"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        </View>
+
+        <Text style={styles.label}>Password</Text>
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Change password"
+            secureTextEntry={!showPassword}
+            value={password}
+            onChangeText={setPassword}
+          />
+        </View>
+
+        <TouchableOpacity
+          style={styles.signUpButton}
+          onPress={handleSave}
+        >
+          <Text style={styles.signUpButtonText}>Save Changes</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 

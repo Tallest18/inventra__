@@ -1,4 +1,5 @@
 // components/auth/TrialModal.tsx
+import { AnimatedModal, MODAL_CONTENT_RESET } from "@/components/ui/AnimatedModal";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
@@ -24,7 +25,7 @@ interface TrialModalProps {
   onStart: () => void;
   /**
    * A live subscription may be dismissed; a trial that was never started and an
-   * expired one may not — those are forced choices, and the dismiss label is
+   * expired one may not  those are forced choices, and the dismiss label is
    * greyed out instead of removed.
    */
   dismissible?: boolean;
@@ -44,7 +45,7 @@ const HIGHLIGHT = "No payment is required today.";
 
 /**
  * The trial offer, presented as a bottom sheet that cannot be dismissed by
- * tapping away or by the Android back button — the user has to choose before
+ * tapping away or by the Android back button  the user has to choose before
  * the app will let them through.
  */
 export const TrialModal: React.FC<TrialModalProps> = ({
@@ -66,17 +67,15 @@ export const TrialModal: React.FC<TrialModalProps> = ({
     : [offer.body, ""];
 
   return (
-    <Modal
+    <AnimatedModal
       visible={visible}
-      transparent
-      animationType="slide"
       statusBarTranslucent
       // Only a dismissible sheet may be closed with the Android back button.
       onRequestClose={() => {
         if (dismissible) onDismiss?.();
       }}
     >
-      <View style={styles.backdrop}>
+      <View style={[styles.backdrop, MODAL_CONTENT_RESET]}>
         <View
           style={[
             styles.sheet,
@@ -164,7 +163,7 @@ export const TrialModal: React.FC<TrialModalProps> = ({
           )}
         </View>
       </View>
-    </Modal>
+    </AnimatedModal>
   );
 };
 

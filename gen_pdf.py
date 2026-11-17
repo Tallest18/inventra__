@@ -210,7 +210,7 @@ story += [Paragraph("1.1 About Inventra", h2)]
 story += info_box(
     "<b>Inventra</b> is a mobile-first inventory management system built for small Nigerian businesses. "
     "It targets retail shop owners and service business operators, enabling them to digitise their stock management, "
-    "track sales, view financial analytics, manage customer debts, and receive intelligent real-time alerts — "
+    "track sales, view financial analytics, manage customer debts, and receive intelligent real-time alerts  "
     "all from their smartphone. The app replaces traditional paper-based stock books."
 )
 story += [Paragraph("Key Project Facts", h3)]
@@ -218,7 +218,7 @@ story += field_table([
     ("App Name", "Inventra"),
     ("Tagline", "No more paper book, your stock is safe here"),
     ("Developer", "Wonderfall Systems"),
-    ("Platform", "React Native (Expo) — Android & iOS"),
+    ("Platform", "React Native (Expo)  Android & iOS"),
     ("Version", "1.0.0"),
     ("App Scheme", "inventra://"),
     ("Bundle ID (iOS)", "INVENTRA2.W"),
@@ -253,7 +253,7 @@ story += field_table([
 
 story += [Paragraph("Backend Services (Firebase)", h3)]
 story += field_table([
-    ("Authentication", "Firebase Authentication — Phone OTP (PhoneAuthProvider + reCAPTCHA)"),
+    ("Authentication", "Firebase Authentication  Phone OTP (PhoneAuthProvider + reCAPTCHA)"),
     ("Database", "Cloud Firestore (NoSQL, real-time)"),
     ("File Storage", "Firebase Storage (images)"),
     ("Auth Persistence", "Platform-aware: browserLocalPersistence (web), default (native)"),
@@ -264,7 +264,7 @@ story.append(PageBreak())
 # ═══ SECTION 2: AUTHENTICATION FLOW ═══
 story += section_header("2. Authentication Flow")
 story += info_box(
-    "Inventra uses <b>Firebase Phone Authentication</b> exclusively — no email/password. "
+    "Inventra uses <b>Firebase Phone Authentication</b> exclusively  no email/password. "
     "Users authenticate via a one-time password (OTP) sent via SMS. "
     "On first login, users are prompted to select their business type before entering the main app. "
     "Authentication state is persisted across app restarts."
@@ -274,9 +274,9 @@ story += [Paragraph("2.1 Auth Flow Overview", h2)]
 story += [Paragraph("The complete authentication flow follows these steps:", body)]
 steps = [
     ("Step 1", "App Launch → Splash Screen (Onboarding1)", "Displays Inventra branding for 5 seconds then auto-redirects to WelcomeScreen. Background is #1155CC blue."),
-    ("Step 2", "WelcomeScreen — Phone Number Entry", "User enters their phone number. The app defaults to Nigerian numbers (+234). A Firebase reCAPTCHA verifier is initialized. On submit, Firebase sends an OTP via SMS."),
-    ("Step 3", "VerificationScreen — OTP Confirmation", "User enters the 6-digit OTP received by SMS into individual digit boxes. On success, the user is signed into Firebase Auth and redirected to the main app."),
-    ("Step 4", "BusinessSelectionScreen — First-Time Setup", "On first login, user selects their business type (Retail Shop or Service Business). This is saved to AsyncStorage. User is then sent to the Home screen."),
+    ("Step 2", "WelcomeScreen  Phone Number Entry", "User enters their phone number. The app defaults to Nigerian numbers (+234). A Firebase reCAPTCHA verifier is initialized. On submit, Firebase sends an OTP via SMS."),
+    ("Step 3", "VerificationScreen  OTP Confirmation", "User enters the 6-digit OTP received by SMS into individual digit boxes. On success, the user is signed into Firebase Auth and redirected to the main app."),
+    ("Step 4", "BusinessSelectionScreen  First-Time Setup", "On first login, user selects their business type (Retail Shop or Service Business). This is saved to AsyncStorage. User is then sent to the Home screen."),
 ]
 steps_data = [[Paragraph(f'<b>{s}</b>', ParagraphStyle('SN', fontSize=10, fontName='Helvetica-Bold', textColor=WHITE, leading=14)),
                Paragraph(f'<b>{t}</b>', ParagraphStyle('ST', fontSize=10, fontName='Helvetica-Bold', leading=14)),
@@ -428,20 +428,20 @@ story += [ut, sp(10)]
 story += [Paragraph("3.2 Collection: products", h2)]
 story += [Paragraph("Stores inventory products. Document ID = Auto-generated Firestore ID.", body)]
 products_fields = [
-    ("userId", "string", "Firebase Auth UID of the owner — used for all queries"),
+    ("userId", "string", "Firebase Auth UID of the owner  used for all queries"),
     ("name", "string", "Product name (required)"),
     ("category", "string", "One of: Foodstuffs, Soft Drinks, Beverages, Noodles & Pasta, Snacks & Biscuits"),
     ("barcode", "string", "SKU or barcode string"),
-    ("image", "object|null", "{ uri: string (Storage URL), type?, fileName?, fileSize? } — nullable"),
+    ("image", "object|null", "{ uri: string (Storage URL), type?, fileName?, fileSize? }  nullable"),
     ("quantityType", "string", '"Single Items" or "Cartons"'),
     ("unitsInStock", "number", "Current units in stock. Decremented on each sale."),
     ("costPrice", "number", "Cost price per unit in Naira (₦)"),
     ("sellingPrice", "number", "Selling price per unit in Naira (₦)"),
-    ("lowStockThreshold", "number", "Alert threshold — notification fired when stock falls to or below this"),
+    ("lowStockThreshold", "number", "Alert threshold  notification fired when stock falls to or below this"),
     ("expiryDate", "string", "ISO date string. Used for expiry alerts."),
     ("supplier.name", "string", "Supplier contact name"),
     ("supplier.phone", "string", "Supplier phone number"),
-    ("dateAdded", "string", "ISO date string — when product was added"),
+    ("dateAdded", "string", "ISO date string  when product was added"),
     ("createdAt", "Timestamp", "Firestore server timestamp"),
     ("unitsPerCarton", "number", "[Cartons only] Units per carton"),
     ("numberOfCartons", "number", "[Cartons only] Number of cartons"),
@@ -517,7 +517,7 @@ story += [Paragraph("3.4 Collection: notifications", h2)]
 story += [Paragraph("Stores all in-app notifications for each user. Document ID = Auto-generated Firestore ID.", body)]
 notif_fields = [
     ("userId", "string", "Firebase Auth UID of the notification recipient"),
-    ("type", "string", "Notification type — see full list below"),
+    ("type", "string", "Notification type  see full list below"),
     ("title", "string", "Notification title shown in the UI"),
     ("message", "string", "Detailed notification message"),
     ("time", "string", 'Human-readable relative time string (e.g., "2hr ago", "Just now")'),
@@ -589,8 +589,8 @@ story += section_header("4. Application Screens & Features")
 screens = [
     ("Home", "(Main)", "Dashboard overview with real-time stats",
      ["User name + profile photo (from Firestore users doc)",
-      "Today's total sales (₦) — summed from sales collection",
-      "Total profit (₦) — calculated from (sellingPrice - costPrice) × quantity",
+      "Today's total sales (₦)  summed from sales collection",
+      "Total profit (₦)  calculated from (sellingPrice - costPrice) × quantity",
       "Number of transactions",
       "Total stock left (sum of all product unitsInStock)",
       "Notification badge with recent alerts",
@@ -601,7 +601,7 @@ screens = [
       '"View All" navigates to TotalSummaryScreen'],
      "products (userId filter) + sales (userId filter) + users/{uid} + notifications (ordered by dateAdded)"),
     ("Inventory", "(Main)", "View and manage all products",
-     ["Search bar — filters products by name in real-time",
+     ["Search bar  filters products by name in real-time",
       "Filter tabs: All | In Stock | Out of Stock | Expiring (within 30 days)",
       "Filter count badges on each tab",
       "Product cards: image, name, category, stock level, price",
@@ -609,8 +609,8 @@ screens = [
       "Floating Add button → AddProductFlow modal"],
      "products (userId filter, sorted by dateAdded desc)"),
     ("Sell", "(Main)", "Point-of-sale + sales history",
-     ['Tab: "All" — product grid for adding to cart (2 cols phone, 3 cols tablet)',
-      'Tab: "History" — all past sales records',
+     ['Tab: "All"  product grid for adding to cart (2 cols phone, 3 cols tablet)',
+      'Tab: "History"  all past sales records',
       "Search products by name",
       "Add to cart with quantity controls",
       "View Cart button → Cart screen",
@@ -680,7 +680,7 @@ story += [
     Paragraph("1. Validate payment method and cart contents", bullet),
     Paragraph("2. If 'Credit (Debtor)': validate customerName (required), phoneNumber (required), amountOwed (required, > 0)", bullet),
     Paragraph("3. Build saleData object with items array, totalAmount, paymentMethod, timestamp, date, and optional debtorDetails", bullet),
-    Paragraph("4. addDoc(collection(db, 'sales'), saleData) — creates the sale record", bullet),
+    Paragraph("4. addDoc(collection(db, 'sales'), saleData)  creates the sale record", bullet),
     Paragraph("5. For each cart item: updateDoc(doc(db,'products',id), { unitsInStock: increment(-quantity) })", bullet),
     Paragraph("6. Show success alert and navigate back to Sell screen", bullet),
     sp(6),
@@ -759,7 +759,7 @@ story += [
     Paragraph("1. <b>Fetch:</b> Get the local file URI as a Blob via <font name='Courier'>fetch(uri).blob()</font>", bullet),
     Paragraph("2. <b>Create Ref:</b> <font name='Courier'>ref(storage, 'path/to/file')</font>", bullet),
     Paragraph("3. <b>Upload:</b> <font name='Courier'>uploadBytes(fileRef, blob)</font>", bullet),
-    Paragraph("4. <b>Get URL:</b> <font name='Courier'>getDownloadURL(fileRef)</font> — returns a public HTTPS URL", bullet),
+    Paragraph("4. <b>Get URL:</b> <font name='Courier'>getDownloadURL(fileRef)</font>  returns a public HTTPS URL", bullet),
     Paragraph("5. <b>Save URL:</b> The returned URL is stored in Firestore (product.image.uri or users.profileImage)", bullet),
     sp(6),
 ]
@@ -768,7 +768,7 @@ story += [
 story += section_header("7. Navigation Structure")
 story += info_box("Inventra uses <b>expo-router v6</b> (file-based routing). The folder/file structure directly defines the navigation hierarchy.")
 nav_items = [
-    ("app/index.tsx", "Entry point — redirects immediately to (Onboarding)/Onboarding1"),
+    ("app/index.tsx", "Entry point  redirects immediately to (Onboarding)/Onboarding1"),
     ("app/_layout.tsx", "Root Stack layout. Handles auth guard, font loading, splash screen control."),
     ("app/(Onboarding)/Onboarding1.tsx", "Branded splash screen. Shows for 5 seconds then navigates to WelcomeScreen."),
     ("app/(Auth)/_layout.tsx", "Auth stack: WelcomeScreen → VerificationScreen → BusinessSelectionScreen"),
@@ -824,7 +824,7 @@ story.append(PageBreak())
 story += section_header("8. State Management")
 story += [Paragraph("Inventra uses a hybrid state management approach:", body)]
 state_items = [
-    ("Zustand (Global)", "themeStore: isDarkMode (bool), themeColor (string), toggleTheme(), setThemeColor(color). taskStore: tasks array, addTask() — currently a placeholder/unused store."),
+    ("Zustand (Global)", "themeStore: isDarkMode (bool), themeColor (string), toggleTheme(), setThemeColor(color). taskStore: tasks array, addTask()  currently a placeholder/unused store."),
     ("React useState (Local)", "All screen-level data is managed with useState: products, sales, notifications, loading states, form data, cart items, selected filters, etc."),
     ("AsyncStorage (Persistent Local)", "Keys: 'businessType' (retail/service), 'hasCompletedOnboarding' (true/false). Written once during BusinessSelectionScreen setup."),
     ("Firebase Auth State", "onAuthStateChanged listener in the root _layout.tsx manages the isAuthenticated boolean. Firebase SDK persists auth tokens automatically."),
@@ -856,15 +856,15 @@ story += firestore_table([
 story += [Paragraph("9.2 Write Operations", h2)]
 write_rows = [
     ("Collection", "Operation", "Trigger"),
-    ("products", "addDoc", "AddProductFlow — save new product"),
-    ("products/{id}", "updateDoc", "EditProduct — update product fields"),
-    ("products/{id}", "updateDoc (increment)", "Checkout — decrement unitsInStock by quantity sold"),
-    ("products/{id}", "deleteDoc", "ProductDetails — delete product"),
-    ("sales", "addDoc", "Checkout — create sale record"),
-    ("sales", "addDoc", "QuickSellScreen — create quick sale"),
-    ("sales/{id}", "deleteDoc", "SalesDetailScreen — delete sale"),
-    ("users/{uid}", "setDoc", "Profile — create user doc if not exists"),
-    ("users/{uid}", "updateDoc", "Profile — update name, profileImage, etc."),
+    ("products", "addDoc", "AddProductFlow  save new product"),
+    ("products/{id}", "updateDoc", "EditProduct  update product fields"),
+    ("products/{id}", "updateDoc (increment)", "Checkout  decrement unitsInStock by quantity sold"),
+    ("products/{id}", "deleteDoc", "ProductDetails  delete product"),
+    ("sales", "addDoc", "Checkout  create sale record"),
+    ("sales", "addDoc", "QuickSellScreen  create quick sale"),
+    ("sales/{id}", "deleteDoc", "SalesDetailScreen  delete sale"),
+    ("users/{uid}", "setDoc", "Profile  create user doc if not exists"),
+    ("users/{uid}", "updateDoc", "Profile  update name, profileImage, etc."),
     ("notifications", "addDoc", "All notificationHelpers functions"),
 ]
 write_data = [[Paragraph(f'<b>{h}</b>', ParagraphStyle('WH', fontSize=9, fontName='Helvetica-Bold', textColor=WHITE)) for h in write_rows[0]]]
@@ -1016,11 +1016,11 @@ story += [Paragraph("11.2 Recommendations for Custom Backend", h2)]
 story += [
     Paragraph("• <b>JWT Tokens:</b> Use short-lived access tokens (15 min) + long-lived refresh tokens (30 days)", bullet),
     Paragraph("• <b>Phone OTP:</b> Rate-limit OTP requests per phone number (max 3/hour). Store OTPs hashed.", bullet),
-    Paragraph("• <b>User Isolation:</b> All Firestore/DB queries MUST filter by authenticated userId — never trust client-provided userId", bullet),
+    Paragraph("• <b>User Isolation:</b> All Firestore/DB queries MUST filter by authenticated userId  never trust client-provided userId", bullet),
     Paragraph("• <b>Image Upload:</b> Validate file type (JPEG/PNG only), enforce max file size (5MB recommended)", bullet),
     Paragraph("• <b>Stock Decrement:</b> Use database transactions to atomically check stock + decrement (prevent overselling)", bullet),
     Paragraph("• <b>Debt Tracking:</b> Debtor details in credit sales should be accessible via a dedicated debtors endpoint for business reporting", bullet),
-    Paragraph("• <b>HTTPS Only:</b> All API communication must be over HTTPS. The Android build already sets usesCleartextTraffic=true — this should be disabled for production", bullet),
+    Paragraph("• <b>HTTPS Only:</b> All API communication must be over HTTPS. The Android build already sets usesCleartextTraffic=true  this should be disabled for production", bullet),
     sp(6),
 ]
 
@@ -1030,9 +1030,9 @@ story.append(PageBreak())
 story += section_header("12. Responsive Design & Device Support")
 story += [Paragraph("All screens implement custom responsive scaling to support phones and tablets:", body)]
 story += field_table([
-    ("Small Device", "width < 375px — fonts scaled to 90%, tighter padding"),
-    ("Normal Phone", "375px ≤ width < 414px — base sizing"),
-    ("Tablet", "width ≥ 768px — fonts scaled to 120%, wider padding (32px), 3-column product grids"),
+    ("Small Device", "width < 375px  fonts scaled to 90%, tighter padding"),
+    ("Normal Phone", "375px ≤ width < 414px  base sizing"),
+    ("Tablet", "width ≥ 768px  fonts scaled to 120%, wider padding (32px), 3-column product grids"),
     ("Base Width", "375px (iPhone SE reference)"),
     ("Base Height", "812px (iPhone X reference)"),
 ], col1w=3*cm)
@@ -1044,7 +1044,7 @@ funcs = [
     ("getFontSize(base)", "Device-aware font: 0.9× on small, 1.0× on normal, 1.15×–1.2× on tablet."),
 ]
 for fn, desc in funcs:
-    story += [Paragraph(f"<font name='Courier'>• {fn}</font> — {desc}", ParagraphStyle('SF2', fontSize=9, fontName='Helvetica', leading=14, leftIndent=10, spaceAfter=4))]
+    story += [Paragraph(f"<font name='Courier'>• {fn}</font>  {desc}", ParagraphStyle('SF2', fontSize=9, fontName='Helvetica', leading=14, leftIndent=10, spaceAfter=4))]
 
 story += [sp(10), Paragraph("Platform Differences:", h3)]
 story += [
@@ -1060,7 +1060,7 @@ story += [sp(80)]
 story += [
     Table([[Paragraph("Document End", ParagraphStyle('DE', fontSize=24, textColor=WHITE, fontName='Helvetica-Bold', alignment=TA_CENTER)),
             ],
-           [Paragraph("Inventra — Backend Architecture Documentation\nVersion 1.0.0 | Wonderfall Systems",
+           [Paragraph("Inventra  Backend Architecture Documentation\nVersion 1.0.0 | Wonderfall Systems",
                       ParagraphStyle('DEsub', fontSize=12, textColor=colors.HexColor("#C7D8FF"), fontName='Helvetica', alignment=TA_CENTER, leading=18)),
             ]],
           colWidths=[W - 4*cm],

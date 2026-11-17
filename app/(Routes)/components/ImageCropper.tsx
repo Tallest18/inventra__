@@ -179,7 +179,7 @@ const ImageCropper: React.FC<Props> = ({ visible, image, onDone, onCancel }) => 
 
       // Crop, then downscale to a sane max width so the upload stays well under
       // the server's 1MB limit (a raw cropped phone photo can be several MB,
-      // which the host drops mid-upload — surfacing as a "Network Error").
+      // which the host drops mid-upload  surfacing as a "Network Error").
       const MAX_WIDTH = 1024;
       const actions: Parameters<typeof manipulateAsync>[1] = [
         { crop: { originX, originY, width, height } },
@@ -282,7 +282,7 @@ const ImageCropper: React.FC<Props> = ({ visible, image, onDone, onCancel }) => 
             <View style={[styles.gridLine, styles.gridH, { top: "66.66%" }]} />
           </View>
 
-          {/* Corner handles — rendered as siblings of the crop box (not
+          {/* Corner handles  rendered as siblings of the crop box (not
               children) so their full touch target stays inside the stage.
               Android won't deliver touches that fall outside a parent's
               bounds, so child-of-box handles were largely untouchable. */}

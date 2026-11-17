@@ -32,7 +32,7 @@ export function parseApiError(error: any, fallback = FALLBACK): ApiErrorInfo {
   const data = error?.response?.data;
 
   if (!data || typeof data !== "object") {
-    // No response body at all — almost always a dropped connection.
+    // No response body at all  almost always a dropped connection.
     const message = error?.request
       ? "No internet connection. Please check your network and try again."
       : fallback;
@@ -52,7 +52,7 @@ export function parseApiError(error: any, fallback = FALLBACK): ApiErrorInfo {
     Object.values(fields)[0] ??
     fallback;
 
-  // `code` is only an error code on a failing status — on a 200 OTP response in
+  // `code` is only an error code on a failing status  on a 200 OTP response in
   // mock mode the same key carries the OTP itself.
   const code =
     typeof data.code === "string" && status && status >= 400

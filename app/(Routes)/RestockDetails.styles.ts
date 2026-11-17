@@ -49,11 +49,20 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     gap: scale(16),
   },
-  productImage: {
-    width: scale(60),
-    height: verticalScale(60),
-    borderRadius: moderateScale(12),
+  productImageTile: {
+    // Same value for both sides so the tile is always square.
+    width: moderateScale(52),
+    height: moderateScale(52),
+    borderRadius: moderateScale(10),
     backgroundColor: "#fff",
+    padding: moderateScale(6),
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  productImage: {
+    width: "100%",
+    height: "100%",
   },
   placeholderImage: {
     justifyContent: "center",

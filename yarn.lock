@@ -4457,6 +4457,13 @@ expo-linking@^8.0.11:
     expo-constants "~18.0.12"
     invariant "^2.2.4"
 
+expo-local-authentication@^17.0.9:
+  version "17.0.9"
+  resolved "https://registry.npmjs.org/expo-local-authentication/-/expo-local-authentication-17.0.9.tgz"
+  integrity sha512-Ro2m6JJ7ebaDCMsnh6CeXKqXUdK5xP2lnrJlAopUO2DGqX5693BWC14ANFihFWL6qEV7IIV4hGpdU5RYyBCbuQ==
+  dependencies:
+    invariant "^2.2.4"
+
 expo-manifests@~1.0.10:
   version "1.0.10"
   resolved "https://registry.npmjs.org/expo-manifests/-/expo-manifests-1.0.10.tgz"
@@ -4531,6 +4538,11 @@ expo-sharing@^14.0.8:
   version "14.0.8"
   resolved "https://registry.npmjs.org/expo-sharing/-/expo-sharing-14.0.8.tgz"
   integrity sha512-A1pPr2iBrxypFDCWVAESk532HK+db7MFXbvO2sCV9ienaFXAk7lIBm6bkqgE6vzRd9O3RGdEGzYx80cYlc089Q==
+
+expo-speech-recognition@^58.0.1:
+  version "58.0.1"
+  resolved "https://registry.npmjs.org/expo-speech-recognition/-/expo-speech-recognition-58.0.1.tgz"
+  integrity sha512-ycDe1BxXblqFGsXxedjBKn3tVQO8Vnj/BtBIycdMjXkXueTYto1LaenkjeBGycJmnS/6mOWC8oQcyBSbZsueFg==
 
 expo-splash-screen@~31.0.13:
   version "31.0.13"

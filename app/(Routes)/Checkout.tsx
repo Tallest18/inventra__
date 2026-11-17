@@ -1,3 +1,4 @@
+import { AnimatedModal, MODAL_CONTENT_RESET } from "@/components/ui/AnimatedModal";
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -8,7 +9,6 @@ import {
     Animated,
     Easing,
     KeyboardAvoidingView,
-    Modal,
     Platform,
     SafeAreaView,
     ScrollView,
@@ -246,15 +246,22 @@ const Checkout: React.FC = () => {
     // Validate debtor details if Credit (Debtor) is selected
     if (selectedPayment === "Credit (Debtor)") {
       if (!customerName.trim()) {
-        Alert.alert("Error", "Please enter customer name");
+        Alert.alert("Missing Information", "Please enter customer name.");
         return;
       }
-      if (!phoneNumber.trim()) {
-        Alert.alert("Error", "Please enter phone number");
+      const cleanedPhone = phoneNumber.replace(/\s+/g, "");
+      if (!cleanedPhone || cleanedPhone.length < 10) {
+        Alert.alert("Invalid Phone Number", "Please enter a valid phone number (at least 10 digits).");
         return;
       }
-      if (!amountOwed.trim() || parseFloat(amountOwed) <= 0) {
-        Alert.alert("Error", "Please enter a valid amount owed");
+      const parsedOwed = parseFloat(amountOwed);
+      if (isNaN(parsedOwed) || parsedOwed <= 0) {
+        Alert.alert("Invalid Amount", "Please enter a valid amount owed greater than ₦0.");
+        return;
+      }
+      const total = calculateTotal();
+      if (parsedOwed > total) {
+        Alert.alert("Invalid Amount", `Amount owed (₦${parsedOwed.toLocaleString()}) cannot exceed total sale amount (₦${total.toLocaleString()}).`);
         return;
       }
     }
@@ -304,15 +311,22 @@ const Checkout: React.FC = () => {
 
   const handleSaveDebtor = (): void => {
     if (!customerName.trim()) {
-      Alert.alert("Error", "Please enter customer name");
+      Alert.alert("Missing Information", "Please enter customer name.");
       return;
     }
-    if (!phoneNumber.trim()) {
-      Alert.alert("Error", "Please enter phone number");
+    const cleanedPhone = phoneNumber.replace(/\s+/g, "");
+    if (!cleanedPhone || cleanedPhone.length < 10) {
+      Alert.alert("Invalid Phone Number", "Please enter a valid phone number (at least 10 digits).");
       return;
     }
-    if (!amountOwed.trim() || parseFloat(amountOwed) <= 0) {
-      Alert.alert("Error", "Please enter a valid amount owed");
+    const parsedOwed = parseFloat(amountOwed);
+    if (isNaN(parsedOwed) || parsedOwed <= 0) {
+      Alert.alert("Invalid Amount", "Please enter a valid amount owed greater than ₦0.");
+      return;
+    }
+    const total = calculateTotal();
+    if (parsedOwed > total) {
+      Alert.alert("Invalid Amount", `Amount owed (₦${parsedOwed.toLocaleString()}) cannot exceed total sale amount (₦${total.toLocaleString()}).`);
       return;
     }
     setShowDebtorModal(false);
@@ -413,17 +427,15 @@ const Checkout: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      <Modal
+      <AnimatedModal
         visible={showDebtorModal}
-        transparent={true}
-        animationType="slide"
         onRequestClose={() => setShowDebtorModal(false)}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={{ flex: 1 }}
         >
-          <View style={styles.modalOverlay}>
+          <View style={[styles.modalOverlay, MODAL_CONTENT_RESET]}>
             <View style={styles.modalContent}>
               {/* Modal Header */}
               <View style={styles.modalHeader}>
@@ -436,7 +448,12 @@ const Checkout: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
+              >
                 {/* Customer Name */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>
@@ -528,7 +545,7 @@ const Checkout: React.FC = () => {
             </View>
           </View>
         </KeyboardAvoidingView>
-      </Modal>
+      </AnimatedModal>
 
       {showToast && (
         <Animated.View

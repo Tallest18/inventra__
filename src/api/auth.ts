@@ -117,7 +117,7 @@ export async function resendOtp(
 
 /**
  * Saves business type and PIN in one call. Works once, while the account has no
- * PIN. Needs the Bearer token from `verifyOtp` — it issues no new tokens.
+ * PIN. Needs the Bearer token from `verifyOtp`  it issues no new tokens.
  */
 export async function completeRegistration(
   payload: CompleteRegistrationRequest,
@@ -164,6 +164,12 @@ export async function changePin(payload: {
   return { ...response.data, user: withResolvedImage(response.data.user) };
 }
 
+/** Signs the account out on every device (other phones get "session ended"). */
+export async function endAllSessions(): Promise<{ success: boolean; message: string }> {
+  const response = await apiClient.post("/auth/end-all-sessions/");
+  return response.data;
+}
+
 // ── Trial / subscription ──────────────────────────────────────────────────────
 
 /** The one-time free trial behind the "Start Free Trial" button. */
@@ -192,7 +198,7 @@ export async function initializePaystack(payload: {
 
 /**
  * Issues a one-time account number to pay into. Calling it again while that
- * account is still valid returns the same one. Send `{}` first — the backend
+ * account is still valid returns the same one. Send `{}` first  the backend
  * answers `email_required` only when the account has no email yet.
  */
 export async function initializeTransfer(payload: {
@@ -250,6 +256,7 @@ export interface UpdateProfilePayload {
   name?: string;
   business_name?: string;
   business_type?: string;
+  business_description?: string;
   // NOTE: profile_image must NEVER be added here as a string.
   // Images are always uploaded via the second argument as a file.
 }
@@ -269,7 +276,7 @@ export async function updateProfile(
   if (profileImage) {
     const formData = new FormData();
 
-    // Append only text fields — never append profile_image as a string
+    // Append only text fields  never append profile_image as a string
     Object.entries(payload).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
         formData.append(key, String(value));
@@ -280,7 +287,7 @@ export async function updateProfile(
     if (profileImage.file instanceof File) {
       formData.append("profile_image", profileImage.file);
 
-      // Web: blob: or data: URI — convert to File first
+      // Web: blob: or data: URI  convert to File first
     } else if (
       profileImage.uri.startsWith("blob:") ||
       profileImage.uri.startsWith("data:")
@@ -325,7 +332,7 @@ export async function updateProfile(
     return withResolvedImage(response.data);
   }
 
-  // No new image — plain JSON, text fields only
+  // No new image  plain JSON, text fields only
   const response = await apiClient.patch<UserProfile>("/auth/profile/", payload);
   return withResolvedImage(response.data);
 }

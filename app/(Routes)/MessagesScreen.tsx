@@ -27,7 +27,7 @@ const MessagesScreen = () => {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
     >
       <View
@@ -57,6 +57,8 @@ const MessagesScreen = () => {
         <FlatList
           data={messages}
           keyExtractor={(item) => item.id}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           renderItem={({ item }) => (
             <View
               style={{
@@ -70,7 +72,7 @@ const MessagesScreen = () => {
               <Text>{item.text}</Text>
             </View>
           )}
-          contentContainerStyle={{ flexGrow: 1 }}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 16 }}
         />
 
         {/* Input Box */}

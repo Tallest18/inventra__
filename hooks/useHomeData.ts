@@ -139,6 +139,7 @@ const DEFAULT_USER_DATA: UserData = {
 };
 
 export const useHomeData = () => {
+  const [loading, setLoading] = useState(true);
   const [inventory, setInventory] = useState<Product[]>([]);
   const [userData, setUserData] = useState<UserData>(DEFAULT_USER_DATA);
 
@@ -160,6 +161,14 @@ export const useHomeData = () => {
       case "daily_summary":
         return [
           { label: "Tap to open Daily Sales Summary", type: "view_summary" },
+        ];
+      case "high_selling":
+        return [
+          {
+            label: "Tap to see product trend",
+            type: "see_trend",
+            productId: inventoryId,
+          },
         ];
       default:
         return [];
@@ -192,6 +201,7 @@ export const useHomeData = () => {
           time: getTimeAgo(createdAt),
           isRead,
           productId: inventoryId,
+          productName: n.inventory_name || undefined,
           dateAdded: createdAt,
           actions: getNotificationActions(n.type, inventoryId),
           status,
@@ -204,57 +214,61 @@ export const useHomeData = () => {
   });
 
   const loadHomeData = useCallback(async () => {
-    const [
-      profileResult,
-      overviewResult,
-      inventoryResult,
-      salesResult,
-      dailySummaryResult,
-    ] = await Promise.allSettled([
-      getProfile(),
-      getDashboardOverview(),
-      listUserInventory({ page: 0, page_size: 50 }),
-      listSales({ page: 0, page_size: 10 }),
-      apiClient.get(endpoints.PRODUCTS_FINANCE_DAILY_SUMMARY),
-    ]);
+    try {
+      const [
+        profileResult,
+        overviewResult,
+        inventoryResult,
+        salesResult,
+        dailySummaryResult,
+      ] = await Promise.allSettled([
+        getProfile(),
+        getDashboardOverview(),
+        listUserInventory({ page: 0, page_size: 50 }),
+        listSales({ page: 0, page_size: 10 }),
+        apiClient.get(endpoints.PRODUCTS_FINANCE_DAILY_SUMMARY),
+      ]);
 
-    const profile =
-      profileResult.status === "fulfilled" ? profileResult.value : null;
-    const overview =
-      overviewResult.status === "fulfilled" ? overviewResult.value : null;
-    const inventoryResponse =
-      inventoryResult.status === "fulfilled" ? inventoryResult.value : null;
-    const salesResponse =
-      salesResult.status === "fulfilled" ? salesResult.value : [];
-    const dailySummary =
-      dailySummaryResult.status === "fulfilled"
-        ? dailySummaryResult.value.data
-        : null;
+      const profile =
+        profileResult.status === "fulfilled" ? profileResult.value : null;
+      const overview =
+        overviewResult.status === "fulfilled" ? overviewResult.value : null;
+      const inventoryResponse =
+        inventoryResult.status === "fulfilled" ? inventoryResult.value : null;
+      const salesResponse =
+        salesResult.status === "fulfilled" ? salesResult.value : [];
+      const dailySummary =
+        dailySummaryResult.status === "fulfilled"
+          ? dailySummaryResult.value.data
+          : null;
 
-    const mappedProducts = (inventoryResponse?.results || []).map(
-      mapApiProduct,
-    );
-    const salesSummary = toSalesSummary(salesResponse || []);
+      const mappedProducts = (inventoryResponse?.results || []).map(
+        mapApiProduct,
+      );
+      const salesSummary = toSalesSummary(salesResponse || []);
 
-    setInventory(mappedProducts);
-    setUserData((prev) => ({
-      ...prev,
-      name: profile?.name || profile?.phone || "User",
-      profileImage: profile?.profile_image || "",
-      todaySales: Number(overview?.today?.sales || 0),
-      profit: Number(overview?.today?.profit || 0),
-      transactions: Number(overview?.today?.transactions || 0),
-      stockLeft: mappedProducts.reduce((sum: number, p: Product) => {
-        return sum + (p.unitsInStock || 0);
-      }, 0),
-      dailyPercentageIncrease: Number(
-        dailySummary?.dailyPercentageIncrease || 0,
-      ),
-      dailyTransactionPercentage: Number(
-        dailySummary?.dailyTransactionPercentage || 0,
-      ),
-      salesSummary,
-    }));
+      setInventory(mappedProducts);
+      setUserData((prev) => ({
+        ...prev,
+        name: profile?.name || profile?.phone || "User",
+        profileImage: profile?.profile_image || "",
+        todaySales: Number(overview?.today?.sales || 0),
+        profit: Number(overview?.today?.profit || 0),
+        transactions: Number(overview?.today?.transactions || 0),
+        stockLeft: mappedProducts.reduce((sum: number, p: Product) => {
+          return sum + (p.unitsInStock || 0);
+        }, 0),
+        dailyPercentageIncrease: Number(
+          dailySummary?.dailyPercentageIncrease || 0,
+        ),
+        dailyTransactionPercentage: Number(
+          dailySummary?.dailyTransactionPercentage || 0,
+        ),
+        salesSummary,
+      }));
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const handleAddProduct = async (productData: Omit<Product, "id">) => {
@@ -287,5 +301,5 @@ export const useHomeData = () => {
     return () => clearInterval(interval);
   }, [loadHomeData]);
 
-  return { inventory, notifications, userData, handleAddProduct, loadHomeData };
+  return { inventory, notifications, userData, handleAddProduct, loadHomeData, loading };
 };

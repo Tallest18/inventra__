@@ -1,8 +1,8 @@
+import { AnimatedModal, MODAL_CONTENT_RESET } from "@/components/ui/AnimatedModal";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
     Dimensions,
-    Modal,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -29,15 +29,13 @@ const InitialChoiceSheet: React.FC<Props> = ({
   const insets = useSafeAreaInsets();
 
   return (
-    <Modal
+    <AnimatedModal
       visible={visible}
-      transparent
-      animationType="fade"
       onRequestClose={onClose}
       statusBarTranslucent={true} // covers status bar on Android
     >
       <TouchableOpacity
-        style={styles.modalBackdrop}
+        style={[styles.modalBackdrop, MODAL_CONTENT_RESET]}
         activeOpacity={1}
         onPress={onClose}
       >
@@ -59,7 +57,7 @@ const InitialChoiceSheet: React.FC<Props> = ({
             </Text>
             <Text style={styles.initialChoiceSubtitle}>
               You can search from existing products or{"\n"}add a new one
-              manually
+              manually.
             </Text>
 
             <TouchableOpacity
@@ -68,8 +66,8 @@ const InitialChoiceSheet: React.FC<Props> = ({
             >
               <Ionicons
                 name="search-outline"
-                size={20}
-                color="#666"
+                size={22}
+                color="#1C1C1C"
                 style={{ marginRight: 10 }}
               />
               <Text style={styles.searchButtonInitialText}>Search</Text>
@@ -81,7 +79,7 @@ const InitialChoiceSheet: React.FC<Props> = ({
             >
               <Ionicons
                 name="add"
-                size={20}
+                size={24}
                 color="#FFF"
                 style={{ marginRight: 8 }}
               />
@@ -90,7 +88,7 @@ const InitialChoiceSheet: React.FC<Props> = ({
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
-    </Modal>
+    </AnimatedModal>
   );
 };
 
@@ -106,38 +104,40 @@ const styles = StyleSheet.create({
   },
   bottomSheetContent: {
     backgroundColor: "#FFF",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: isSmall ? 16 : 24,
-    paddingTop: 8,
+    // Deep curve on the top corners, matching the design (and Summary sheet).
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   handleBar: {
-    width: 60,
+    width: 90,
     height: 4,
-    backgroundColor: "#1155CC",
+    backgroundColor: "#1C1C1C",
     borderRadius: 2,
     alignSelf: "center",
-    marginBottom: 16,
+    marginBottom: 28,
   },
   bottomSheetHeader: {
-    fontSize: isSmall ? 13 : 15,
+    fontSize: isSmall ? 13 : 14,
     color: "#1155CC",
     textAlign: "center",
-    marginBottom: 16,
-    fontFamily: "DMSans_600SemiBold",
+    marginBottom: 24,
+    fontFamily: "DMSans_400Regular",
   },
   initialChoiceTitle: {
-    fontSize: isSmall ? 16 : 19,
-    color: "#1A202C",
+    fontSize: isSmall ? 19 : 21,
+    lineHeight: isSmall ? 25 : 27,
+    color: "#000000",
     textAlign: "center",
-    marginBottom: 8,
-    fontFamily: "DMSans_600SemiBold",
+    marginBottom: 6,
+    fontFamily: "DMSans_700Bold",
   },
   initialChoiceSubtitle: {
-    fontSize: isSmall ? 11 : 13,
-    color: "#718096",
+    fontSize: isSmall ? 12 : 13.5,
+    color: "#BDBDBD",
     textAlign: "center",
-    marginBottom: isSmall ? 20 : 28,
+    marginBottom: isSmall ? 22 : 26,
     lineHeight: 19,
     fontFamily: "DMSans_400Regular",
   },
@@ -148,15 +148,15 @@ const styles = StyleSheet.create({
     width: "100%",
     backgroundColor: "#fff",
     borderRadius: 50,
-    paddingVertical: isSmall ? 11 : 13,
-    marginBottom: 10,
+    paddingVertical: isSmall ? 13 : 15,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: "#1155CC",
   },
   searchButtonInitialText: {
-    fontSize: isSmall ? 13 : 14,
+    fontSize: isSmall ? 13 : 14.5,
     color: "#1C1C1C",
-    fontFamily: "DMSans_500Medium",
+    fontFamily: "DMSans_400Regular",
   },
   addManuallyButton: {
     flexDirection: "row",
@@ -165,12 +165,12 @@ const styles = StyleSheet.create({
     width: "100%",
     backgroundColor: "#1155CC",
     borderRadius: 50,
-    paddingVertical: isSmall ? 11 : 13,
+    paddingVertical: isSmall ? 13 : 15,
   },
   addManuallyButtonText: {
-    fontSize: isSmall ? 13 : 14,
+    fontSize: isSmall ? 13 : 14.5,
     color: "#FFF",
-    fontFamily: "DMSans_600SemiBold",
+    fontFamily: "DMSans_500Medium",
   },
 });
 

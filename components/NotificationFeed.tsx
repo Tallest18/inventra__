@@ -1,7 +1,8 @@
 import { useMarkNotificationRead } from "@/hooks/useNotifications";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React from "react";
+import ProductSummarySheet from "@/components/product/ProductSummarySheet";
+import React, { useState } from "react";
 import {
   Alert,
   FlatList,
@@ -12,55 +13,6 @@ import {
 } from "react-native";
 import { moderateScale, scale, homeStyles as styles } from "./homeStyles";
 import { Notification, Product } from "./homeTypes";
-
-// ─── Dummy data ───────────────────────────────────────────────────────────────
-
-export const DUMMY_NOTIFICATIONS: Notification[] = [
-  {
-    id: "1",
-    type: "low_stock",
-    title: "Low Stock Alert",
-    message: "Coca-Cola 50cl",
-    time: "23min Ago",
-    status: "New",
-    isNew: true,
-    isRead: false,
-    dateAdded: new Date().toISOString(),
-    actions: [
-      { label: "Tap to restock", type: "restock", productId: "1" },
-      { label: "View product page", type: "view_product", productId: "1" },
-    ],
-  },
-  {
-    id: "2",
-    type: "daily_summary",
-    title: "Profit Summary",
-    message: "You made ₦6,300 in profit today. Tap...",
-    time: "30min Ago",
-    status: "New",
-    isNew: true,
-    isRead: false,
-    dateAdded: new Date().toISOString(),
-    actions: [
-      { label: "Tap to open Daily Sales Summary", type: "view_summary" },
-    ],
-  },
-  {
-    id: "3",
-    type: "out_of_stock",
-    title: "Out of Stock Alert",
-    message: "Premier Soap is out of stock!",
-    time: "23min Ago",
-    status: "New",
-    isNew: true,
-    isRead: true,
-    dateAdded: new Date().toISOString(),
-    actions: [
-      { label: "Tap to restock", type: "restock", productId: "3" },
-      { label: "View product page", type: "view_product", productId: "3" },
-    ],
-  },
-];
 
 // ─── Icon resolver ────────────────────────────────────────────────────────────
 
@@ -119,10 +71,25 @@ const NotificationFeed: React.FC<NotificationFeedProps> = ({
   onRestockById,
 }) => {
   const router = useRouter();
+  // Summary sheet opens over Home instead of navigating to a page.
+  const [summaryId, setSummaryId] = useState<string | null>(null);
   const markRead = useMarkNotificationRead();
 
   const openNotification = (id: string) => {
     markRead.mutate(id);
+    const item = notifications.find((n) => n.id === id);
+    if (item?.type === "high_selling") {
+      const target =
+        item.productName ||
+        (item.message.includes(" has sold")
+          ? item.message.split(" has sold")[0].trim()
+          : item.productId || "");
+      router.push({
+        pathname: "/(Main)/Finance",
+        params: { scrollTo: "topProducts", targetProduct: target },
+      });
+      return;
+    }
     router.push({
       pathname: "/(Routes)/RestockDetails",
       params: { notificationId: id },
@@ -135,33 +102,47 @@ const NotificationFeed: React.FC<NotificationFeedProps> = ({
   ) => {
     switch (action.type) {
       case "restock": {
-        // For restock, always target the actual inventory product id.
-        const targetId = String(
-          action.productId ?? notification.productId ?? notification.id,
-        );
-        const product = inventory.find((p) => String(p.id) === targetId);
-
-        if (product) {
-          // out_of_stock uses the global AddProductFlow restock mode
-          // (prefilled product + starts from step 2).
-          onRestockProduct?.(product);
-          break;
-        }
-
-        if (!onRestockById) {
-          Alert.alert("Product not found", "This product could not be loaded.");
-          return;
-        }
-
-        await onRestockById(targetId);
+        markRead.mutate(notification.id);
+        router.push({
+          pathname: "/(Routes)/RestockDetails",
+          params: {
+            notificationId: String(notification.id),
+            productId: action.productId
+              ? String(action.productId)
+              : notification.productId
+                ? String(notification.productId)
+                : undefined,
+          },
+        });
         break;
       }
 
       case "view_product": {
-        const productId = action.productId ?? notification.id;
+        markRead.mutate(notification.id);
+        const productId = action.productId ?? notification.productId;
+        if (productId) {
+          router.push({
+            pathname: "/(Main)/Inventory",
+            params: { focusProductId: String(productId) },
+          });
+        } else {
+          router.push({
+            pathname: "/(Main)/Inventory",
+          });
+        }
+        break;
+      }
+
+      case "see_trend": {
+        markRead.mutate(notification.id);
+        const target =
+          notification.productName ||
+          (notification.message.includes(" has sold")
+            ? notification.message.split(" has sold")[0].trim()
+            : notification.productId || "");
         router.push({
-          pathname: "/(Routes)/ProductDetails",
-          params: { productId },
+          pathname: "/(Main)/Finance",
+          params: { scrollTo: "topProducts", targetProduct: target },
         });
         break;
       }
@@ -262,6 +243,12 @@ const NotificationFeed: React.FC<NotificationFeedProps> = ({
           <Text style={styles.emptyText}>No recent updates</Text>
         }
         scrollEnabled={false}
+      />
+
+      <ProductSummarySheet
+        visible={!!summaryId}
+        productId={summaryId}
+        onClose={() => setSummaryId(null)}
       />
     </View>
   );

@@ -3,6 +3,8 @@ import { styles } from "@/src/styles/Sell.styles";
 import { formatCurrency } from "@/utils/formatters";
 import Feather from "@expo/vector-icons/Feather";
 import React from "react";
+import { ListFooterLoader } from "@/components/ui";
+import { isNearBottom } from "@/hooks/useInfiniteList";
 import { Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 interface CartItem {
@@ -17,6 +19,9 @@ interface AllProductsProps {
   onAddToCart: (productId: string) => void;
   onIncrement: (productId: string) => void;
   onDecrement: (productId: string) => void;
+  /** Infinite scroll: called near the bottom to fetch the next page. */
+  onEndReached?: () => void;
+  loadingMore?: boolean;
 }
 
 const AllProducts: React.FC<AllProductsProps> = ({
@@ -26,6 +31,8 @@ const AllProducts: React.FC<AllProductsProps> = ({
   onAddToCart,
   onIncrement,
   onDecrement,
+  onEndReached,
+  loadingMore = false,
 }) => {
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
@@ -114,7 +121,13 @@ const AllProducts: React.FC<AllProductsProps> = ({
     <ScrollView
       style={styles.productsContainer}
       showsVerticalScrollIndicator={false}
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
       contentContainerStyle={styles.scrollContent}
+      onScroll={(e) => {
+        if (onEndReached && isNearBottom(e)) onEndReached();
+      }}
+      scrollEventThrottle={200}
     >
       {filteredProducts.length === 0 ? (
         renderEmptyState()
@@ -126,6 +139,7 @@ const AllProducts: React.FC<AllProductsProps> = ({
           <View style={styles.productsGrid}>
             {filteredProducts.map((product) => renderProductCard(product))}
           </View>
+          <ListFooterLoader loading={loadingMore} />
         </>
       )}
       <View style={styles.bottomPadding} />

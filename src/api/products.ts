@@ -218,7 +218,7 @@ export async function updateProductWithImage(
     return updateProduct(id, payload);
   }
 
-  // A remote (http) image is already uploaded — send the URL as a plain field;
+  // A remote (http) image is already uploaded  send the URL as a plain field;
   // a local uri is normalised into a { uri, name, type } file part.
   const formData = toFormData({
     ...payload,

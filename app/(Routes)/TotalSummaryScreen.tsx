@@ -17,6 +17,7 @@ import {
 
 import { listSales } from "@/src/api";
 import { formatNumber } from "@/utils/formatters";
+import { Skeleton } from "@/components/ui";
 
 const { width, height } = Dimensions.get("window");
 
@@ -205,9 +206,30 @@ const TotalSummaryScreen = () => {
           <Text style={styles.headerTitle}>Sales Summary</Text>
           <View style={styles.placeholder} />
         </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0056D2" />
-          <Text style={styles.loadingText}>Loading sales data...</Text>
+        <View style={styles.summaryContainer}>
+          {[1, 2, 3].map((card) => (
+            <View key={card} style={styles.summaryCard}>
+              <Skeleton width={36} height={36} borderRadius={18} style={{ marginBottom: 8 }} />
+              <Skeleton width="80%" height={16} style={{ marginBottom: 6 }} />
+              <Skeleton width="60%" height={12} />
+            </View>
+          ))}
+        </View>
+        <View style={styles.listContent}>
+          <View style={[styles.listHeader, { marginBottom: 16 }]}>
+            <Skeleton width={120} height={18} />
+            <Skeleton width={60} height={14} />
+          </View>
+          {[1, 2, 3, 4, 5].map((row) => (
+            <View key={row} style={[styles.saleItem, { alignItems: "center" }]}>
+              <Skeleton width={44} height={44} borderRadius={8} />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Skeleton width="65%" height={15} style={{ marginBottom: 6 }} />
+                <Skeleton width="40%" height={12} />
+              </View>
+              <Skeleton width={70} height={16} />
+            </View>
+          ))}
         </View>
       </SafeAreaView>
     );

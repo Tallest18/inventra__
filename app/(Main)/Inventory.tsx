@@ -1,9 +1,10 @@
-import { useProductsData } from "@/hooks/useProductsData";
+import { isNearBottom, useInfiniteList } from "@/hooks/useInfiniteList";
+import { getUserInventoryItem, listUserInventory } from "@/src/api";
 import { Product as UIProduct } from "@/src/api/dummyData/dummyProducts";
 import type { ApiUserInventoryItem } from "@/src/api/products";
 import { AntDesign, Feather } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,18 +18,13 @@ import {
   View,
 } from "react-native";
 import { formatCurrency } from "@/utils/formatters";
-import { Spinner } from "@/components/ui";
+import { ListFooterLoader, Spinner } from "@/components/ui";
+import { InventorySkeleton } from "@/components/skeletons";
+import ProductSummarySheet from "@/components/product/ProductSummarySheet";
 import AddProductFlow from "../(Routes)/AddProductFlow";
 import { styles } from "../../src/styles/Inventory.styles";
 
 type FilterType = "all" | "inStock" | "outOfStock" | "expiring";
-
-interface FilterCounts {
-  all: number;
-  inStock: number;
-  outOfStock: number;
-  expiring: number;
-}
 
 interface FilterItem {
   key: string;
@@ -51,20 +47,38 @@ const moderateScale = (size: number, factor = 0.5) =>
 const H_PAD = isTablet ? scale(32) : isSmallDevice ? scale(14) : scale(20);
 
 const Inventory: React.FC = () => {
-  const router = useRouter();
-  const { focusProductId } = useLocalSearchParams();
-  const [products, setProducts] = useState<UIProduct[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<UIProduct[]>([]);
+  const params = useLocalSearchParams<{ focusProductId?: string }>();
+  const focusProductId = Array.isArray(params.focusProductId)
+    ? params.focusProductId[0]
+    : params.focusProductId;
+
+  const scrollViewRef = useRef<ScrollView>(null);
+  const itemPositions = useRef<Record<string, number>>({});
+  const hasScrolledRef = useRef(false);
+
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortOrder, setSortOrder] = useState<"recent" | "name" | "name_desc">("recent");
   const [showAddProduct, setShowAddProduct] = useState<boolean>(false);
-  const [filterCounts, setFilterCounts] = useState<FilterCounts>({
-    all: 0,
-    inStock: 0,
-    outOfStock: 0,
-    expiring: 0,
-  });
+  // Product whose Summary sheet is open (opens over this screen, not a page).
+  const [summaryItem, setSummaryItem] = useState<ApiUserInventoryItem | null>(null);
+  const [extraFocusItem, setExtraFocusItem] = useState<ApiUserInventoryItem | null>(null);
+
+  // When deep-linked to a specific product, ensure it's visible in the list and reset scroll lock.
+  useEffect(() => {
+    if (focusProductId) {
+      setActiveFilter("all");
+      setSearchQuery("");
+      hasScrolledRef.current = false;
+    }
+  }, [focusProductId]);
+
+  // Debounced so each keystroke doesn't start a new paginated query.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 350);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
   const toggleSortOrder = () => {
     setSortOrder((prev) => {
@@ -74,18 +88,43 @@ const Inventory: React.FC = () => {
     });
   };
 
-  // TanStack Query: fetch user inventory from API
+  // Paginated inventory: search, tab filter and sort all run on the server,
+  // 20 rows at a time, with the next page fetched as the user nears the end.
+  const serverFilter = activeFilter === "all" ? undefined : activeFilter;
   const {
-    userInventory: userInventoryData,
-    loadingInventory: loading,
-    fetchingInventory: searching,
-    // error: not exposed in unified hook, handle as needed
-  } = useProductsData({
-    search: searchQuery.trim() || undefined,
-    page: 0,
-    page_size: 50,
-    sort: sortOrder,
+    items: inventoryItems,
+    isLoading: loading,
+    isSwitching: searching,
+    isFetchingMore,
+    loadMore,
+  } = useInfiniteList<ApiUserInventoryItem>({
+    queryKey: ["user-inventory", "infinite", debouncedSearch, serverFilter, sortOrder],
+    fetchPage: (page, page_size) =>
+      listUserInventory({
+        search: debouncedSearch || undefined,
+        filter: serverFilter,
+        sort: sortOrder,
+        page,
+        page_size,
+      }),
+    getId: (p) => p.id,
   });
+
+  // If focusProductId is not in the currently loaded page, fetch it directly so it renders
+  useEffect(() => {
+    if (!focusProductId) {
+      setExtraFocusItem(null);
+      return;
+    }
+    const exists = inventoryItems.some((i) => String(i.id) === String(focusProductId));
+    if (!exists) {
+      getUserInventoryItem(focusProductId)
+        .then((item) => setExtraFocusItem(item))
+        .catch((err) => console.warn("Could not fetch focus product:", err));
+    } else {
+      setExtraFocusItem(null);
+    }
+  }, [focusProductId, inventoryItems]);
 
   // Map API product to UI Product type
   function mapApiProductToUI(p: ApiUserInventoryItem): UIProduct {
@@ -115,93 +154,48 @@ const Inventory: React.FC = () => {
     };
   }
 
-  // Calculate filter counts
-  const calculateFilterCounts = (productsData: UIProduct[]): void => {
-    const now = new Date();
-    const tenDaysFromNow = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
-    const counts: FilterCounts = {
-      all: productsData.length,
-      inStock: 0,
-      outOfStock: 0,
-      expiring: 0,
-    };
-    productsData.forEach((product) => {
-      if (product.unitsInStock > 0) counts.inStock++;
-      else counts.outOfStock++;
-      if (product.expiryDate) {
-        const expiryDate = new Date(product.expiryDate);
-        if (expiryDate <= tenDaysFromNow && expiryDate > now) counts.expiring++;
+  // Preserve natural order; append extra focus item if needed.
+  const filteredProducts = useMemo<UIProduct[]>(() => {
+    const list = [...inventoryItems];
+    if (
+      extraFocusItem &&
+      !list.some((i) => String(i.id) === String(extraFocusItem.id))
+    ) {
+      list.push(extraFocusItem);
+    }
+    return list.map(mapApiProductToUI);
+  }, [inventoryItems, extraFocusItem]);
+
+  const scrollToFocusedItem = useCallback(
+    (targetY?: number) => {
+      if (!focusProductId) return;
+      const y =
+        typeof targetY === "number"
+          ? targetY
+          : itemPositions.current[String(focusProductId)];
+      if (typeof y === "number" && scrollViewRef.current) {
+        hasScrolledRef.current = true;
+        setTimeout(() => {
+          scrollViewRef.current?.scrollTo({
+            y: Math.max(0, y - 20),
+            animated: true,
+          });
+        }, 120);
       }
-    });
-    setFilterCounts(counts);
-  };
+    },
+    [focusProductId],
+  );
 
-  // Map and set products when user inventory data changes
   useEffect(() => {
-    if (userInventoryData && userInventoryData.results) {
-      const mapped: UIProduct[] = userInventoryData.results
-        .map(mapApiProductToUI)
-        .sort(
-          (a: UIProduct, b: UIProduct) =>
-            new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime(),
-        );
-      setProducts(mapped);
-      calculateFilterCounts(mapped);
+    if (focusProductId && !hasScrolledRef.current) {
+      scrollToFocusedItem();
     }
-  }, [userInventoryData]);
+  }, [focusProductId, filteredProducts, scrollToFocusedItem]);
 
-  // Main filtering logic, including focusProductId, searchQuery and sortOrder
-  useEffect(() => {
-    let filtered = [...products];
-
-    // 1. Stock Status Filter
-    if (activeFilter === "inStock") {
-      filtered = filtered.filter((p) => p.unitsInStock > 0);
-    } else if (activeFilter === "outOfStock") {
-      filtered = filtered.filter((p) => p.unitsInStock <= 0);
-    } else if (activeFilter === "expiring") {
-      const now = new Date();
-      const tenDaysFromNow = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
-
-      filtered = filtered.filter((p) => {
-        if (!p.expiryDate) return false;
-        const expiryDate = new Date(p.expiryDate);
-        return expiryDate > now && expiryDate <= tenDaysFromNow;
-      });
-    }
-
-    // 2. Local Search Filter
-    if (searchQuery.trim()) {
-      const term = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter((p) => {
-        const name = p.name?.toLowerCase() || "";
-        const category = p.category?.toLowerCase() || "";
-        const barcode = p.barcode?.toLowerCase() || "";
-        return name.includes(term) || category.includes(term) || barcode.includes(term);
-      });
-    }
-
-    // 3. Sorting
-    if (sortOrder === "name") {
-      filtered.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
-    } else if (sortOrder === "name_desc") {
-      filtered.sort((a, b) => b.name.localeCompare(a.name, undefined, { sensitivity: "base" }));
-    } else {
-      // recent (default)
-      filtered.sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime());
-    }
-
-    // 4. Arrange focus product first if matches
-    if (focusProductId) {
-      const idx = filtered.findIndex((p) => p.id === focusProductId);
-      if (idx > -1) {
-        const [prod] = filtered.splice(idx, 1);
-        filtered = [prod, ...filtered];
-      }
-    }
-
-    setFilteredProducts(filtered);
-  }, [products, activeFilter, searchQuery, focusProductId, sortOrder]);
+  // A genuinely empty shop: no rows with no search and no tab filter applied.
+  const inventoryEmpty =
+    !loading && !searching && filteredProducts.length === 0 &&
+    activeFilter === "all" && !debouncedSearch;
 
   const handleSearchChange = (text: string): void => setSearchQuery(text);
   const clearSearch = (): void => setSearchQuery("");
@@ -211,15 +205,11 @@ const Inventory: React.FC = () => {
   };
 
   const renderFilterTabs = (): React.ReactElement => {
-    const filters: FilterItem[] = [
-      { key: "all", label: "All Products", count: filterCounts.all },
-      { key: "inStock", label: "In Stock", count: filterCounts.inStock },
-      {
-        key: "outOfStock",
-        label: "Out of Stock",
-        count: filterCounts.outOfStock,
-      },
-      { key: "expiring", label: "Expiring", count: filterCounts.expiring },
+    const filters: Omit<FilterItem, "count">[] = [
+      { key: "all", label: "All Products" },
+      { key: "inStock", label: "In Stock" },
+      { key: "outOfStock", label: "Out of Stock" },
+      { key: "expiring", label: "Expiring" },
     ];
 
     return (
@@ -257,15 +247,32 @@ const Inventory: React.FC = () => {
   const cardWidth = isTablet ? (width - H_PAD * 2 - scale(16)) / 2 : "100%";
 
   const renderProductCard = (product: UIProduct): React.ReactElement => {
+    const isFocused = Boolean(
+      focusProductId && String(product.id) === String(focusProductId),
+    );
+
     return (
       <TouchableOpacity
         key={product.id}
-        style={[styles.productCard, { width: cardWidth as any }]}
+        onLayout={(e) => {
+          const y = e.nativeEvent.layout.y;
+          itemPositions.current[String(product.id)] = y;
+          if (isFocused && !hasScrolledRef.current) {
+            scrollToFocusedItem(y);
+          }
+        }}
+        style={[
+          styles.productCard,
+          { width: cardWidth as any },
+          isFocused && styles.focusedProductCard,
+        ]}
         onPress={() =>
-          router.push({
-            pathname: "/(Routes)/ProductDetails" as any,
-            params: { productId: product.id },
-          })
+          setSummaryItem(
+            inventoryItems.find((i) => String(i.id) === product.id) ??
+              (extraFocusItem && String(extraFocusItem.id) === product.id
+                ? extraFocusItem
+                : null),
+          )
         }
         activeOpacity={0.8}
       >
@@ -377,10 +384,7 @@ const Inventory: React.FC = () => {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Spinner size={48} color="#1155CC" />
-          <Text style={styles.loadingText}>Loading inventory...</Text>
-        </View>
+        <InventorySkeleton />
       </SafeAreaView>
     );
   }
@@ -420,14 +424,21 @@ const Inventory: React.FC = () => {
       </View>
 
       {/* Filter Tabs */}
-      {products.length > 0 && renderFilterTabs()}
+      {!inventoryEmpty && renderFilterTabs()}
 
-      {/* Products Grid — replaced by a spinner while (re)loading, so only this
+      {/* Products Grid  replaced by a spinner while (re)loading, so only this
           area shows the loading state; the search bar, filters and tabs stay. */}
       <ScrollView
+        ref={scrollViewRef}
         style={styles.productsContainer}
         showsVerticalScrollIndicator={false}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
+        onScroll={(e) => {
+          if (isNearBottom(e)) loadMore();
+        }}
+        scrollEventThrottle={200}
       >
         {searching ? (
           <View style={styles.listLoading}>
@@ -435,15 +446,16 @@ const Inventory: React.FC = () => {
           </View>
         ) : (
           <View style={styles.productsGrid}>
-            {products.length === 0 && !loading
+            {inventoryEmpty
               ? renderEmptyState()
-              : filteredProducts.length === 0 && searchQuery.length > 0
+              : filteredProducts.length === 0 && debouncedSearch.length > 0
                 ? renderSearchEmptyState()
                 : filteredProducts.length === 0 && activeFilter !== "all"
                   ? renderFilterEmptyState()
                   : filteredProducts.map((product) => renderProductCard(product))}
           </View>
         )}
+        <ListFooterLoader loading={isFetchingMore} />
         <View style={styles.bottomPadding} />
       </ScrollView>
 
@@ -455,6 +467,13 @@ const Inventory: React.FC = () => {
       >
         <Feather name="plus" size={moderateScale(28)} color="white" />
       </TouchableOpacity>
+
+      <ProductSummarySheet
+        visible={!!summaryItem}
+        productId={summaryItem?.id ?? null}
+        initialItem={summaryItem ?? undefined}
+        onClose={() => setSummaryItem(null)}
+      />
 
       <AddProductFlow
         visible={showAddProduct}

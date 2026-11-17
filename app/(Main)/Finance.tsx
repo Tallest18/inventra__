@@ -1,4 +1,7 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import PeriodPickerSheet from "@/components/finance/PeriodPickerSheet";
+import { DateRange, defaultRange } from "@/utils/periodRange";
+import { useLocalSearchParams } from "expo-router";
 import {
   ActivityIndicator,
   SafeAreaView,
@@ -7,9 +10,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { styles } from "../../src/styles/Finance.styles";
 
+import { FinanceSkeleton } from "@/components/skeletons";
 import {
   DailySummaryCard,
   MonthlyReportCard,
@@ -26,15 +29,29 @@ import { verticalScale } from "../../utils/scaling";
 import { Period } from "../types/finance.types";
 
 const Finance = () => {
-  const [selectedPeriod, setSelectedPeriod] = useState<Period>("Week");
-  const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const params = useLocalSearchParams<{ scrollTo?: string; targetProduct?: string }>();
+  const scrollTo = params.scrollTo;
+  const targetProduct = params.targetProduct;
 
-  const showDatePicker = useCallback(() => setIsDatePickerVisible(true), []);
-  const hideDatePicker = useCallback(() => setIsDatePickerVisible(false), []);
-  const handleDateConfirm = useCallback((date: Date) => {
-    setSelectedDate(date);
-    setIsDatePickerVisible(false);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const topProductsY = useRef<number | null>(null);
+  const hasScrolledRef = useRef(false);
+
+  const [selectedPeriod, setSelectedPeriod] = useState<Period>("Week");
+  const [isPickerVisible, setIsPickerVisible] = useState(false);
+  // The summary card's day / week / month; resets to the current one whenever
+  // the filter changes.
+  const [summaryRange, setSummaryRange] = useState<DateRange>(() => defaultRange("Week"));
+
+  // Month shown in the Monthly Report card (independent of the filter).
+  const [reportMonth, setReportMonth] = useState<DateRange>(() => defaultRange("Month"));
+  const [isReportPickerVisible, setIsReportPickerVisible] = useState(false);
+
+  const showPicker = useCallback(() => setIsPickerVisible(true), []);
+  const hidePicker = useCallback(() => setIsPickerVisible(false), []);
+  const selectPeriod = useCallback((p: typeof selectedPeriod) => {
+    setSelectedPeriod(p);
+    setSummaryRange(defaultRange(p));
   }, []);
 
   const {
@@ -47,158 +64,188 @@ const Finance = () => {
     seasonalInsights,
     chartData,
     monthlyReport,
-  } = useFinanceData(selectedPeriod, selectedDate);
+  } = useFinanceData(selectedPeriod, summaryRange, reportMonth);
 
+  // Scroll to Top Performing Products section when deep-linked
+  useEffect(() => {
+    hasScrolledRef.current = false;
+  }, [scrollTo, targetProduct]);
+
+  const doScrollToTopProducts = useCallback(
+    (yOffset?: number) => {
+      if (hasScrolledRef.current || scrollTo !== "topProducts") return;
+      const y = typeof yOffset === "number" ? yOffset : topProductsY.current;
+      if (typeof y === "number" && scrollViewRef.current) {
+        hasScrolledRef.current = true;
+        setTimeout(() => {
+          scrollViewRef.current?.scrollTo({
+            y: Math.max(0, y - 20),
+            animated: true,
+          });
+        }, 120);
+      }
+    },
+    [scrollTo],
+  );
+
+  useEffect(() => {
+    if (scrollTo === "topProducts" && !hasScrolledRef.current && topProductsY.current !== null) {
+      doScrollToTopProducts();
+    }
+  }, [scrollTo, topProducts, doScrollToTopProducts]);
+
+  // Downloads the full backend report for the month chosen on the card.
   const { pdfLoading, generatePDFReport } = usePdfReport({
     monthlyReport,
-    financialSummary,
-    topProducts,
-    slowMovingStock,
-    stockRecommendations,
+    reportMonth,
   });
 
   return (
     // FIX: Plain View as root so we control stacking ourselves.
-    // SafeAreaView moves inside — it only wraps content, not the picker.
+    // SafeAreaView moves inside  it only wraps content, not the picker.
     <View style={styles.root}>
       <SafeAreaView style={styles.container}>
         <ScrollView
+          ref={scrollViewRef}
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Financial Central</Text>
-            <Text style={styles.headerSubtitle}>
-              See how your business is performing
-            </Text>
-          </View>
-
-          {/* Period Selector */}
-          <View style={styles.periodSelector}>
-            {(["Today", "Week", "Month"] as const).map((p) => (
-              <TouchableOpacity
-                key={p}
-                style={[
-                  styles.periodButton,
-                  selectedPeriod === p && styles.periodButtonActive,
-                ]}
-                onPress={() => setSelectedPeriod(p)}
-              >
-                <Text
-                  style={[
-                    styles.periodText,
-                    selectedPeriod === p && styles.periodTextActive,
-                  ]}
-                >
-                  {p}
+          {dataLoading && !financialSummary ? (
+            <FinanceSkeleton />
+          ) : (
+            <>
+              {/* Header */}
+              <View style={styles.header}>
+                <Text style={styles.headerTitle}>Financial Central</Text>
+                <Text style={styles.headerSubtitle}>
+                  See how your business is performing
                 </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+              </View>
 
-          <SummaryCards
-            financialSummary={
-              financialSummary || {
-                totalProfit: 0,
-                totalRevenue: 0,
-                totalExpenses: 0,
-              }
-            }
-          />
+              {/* Period Selector */}
+              <View style={styles.periodSelector}>
+                {(["Today", "Week", "Month"] as const).map((p) => (
+                  <TouchableOpacity
+                    key={p}
+                    style={[
+                      styles.periodButton,
+                      selectedPeriod === p && styles.periodButtonActive,
+                    ]}
+                    onPress={() => selectPeriod(p)}
+                  >
+                    <Text
+                      style={[
+                        styles.periodText,
+                        selectedPeriod === p && styles.periodTextActive,
+                      ]}
+                    >
+                      {p}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
-          <DailySummaryCard
-            dailySummary={
-              dailySummary || {
-                revenue: 0,
-                profit: 0,
-                sales: 0,
-                orders: 0,
-                date: "-",
-              }
-            }
-            selectedDate={selectedDate}
-            onOpenDatePicker={showDatePicker}
-          />
+              <SummaryCards
+                financialSummary={
+                  financialSummary || {
+                    totalProfit: 0,
+                    totalRevenue: 0,
+                    totalExpenses: 0,
+                  }
+                }
+              />
 
-          <TopProductsSection topProducts={topProducts || []} />
+              <DailySummaryCard
+                dailySummary={
+                  dailySummary || {
+                    revenue: 0,
+                    profit: 0,
+                    sales: 0,
+                    orders: 0,
+                    date: "-",
+                  }
+                }
+                period={selectedPeriod}
+                range={summaryRange}
+                onOpenDatePicker={showPicker}
+              />
 
-          <SlowMovingStockSection slowMovingStock={slowMovingStock || []} />
+              <TopProductsSection
+                topProducts={topProducts || []}
+                targetProduct={targetProduct}
+                onLayout={(e) => {
+                  topProductsY.current = e.nativeEvent.layout.y;
+                  if (scrollTo === "topProducts" && !hasScrolledRef.current) {
+                    doScrollToTopProducts(e.nativeEvent.layout.y);
+                  }
+                }}
+              />
 
-          <StockRecommendationsSection
-            stockRecommendations={stockRecommendations || []}
-          />
+              <SlowMovingStockSection slowMovingStock={slowMovingStock || []} />
 
-          <SalesTrendChart
-            chartData={
-              chartData || {
-                labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-                datasets: [
-                  {
-                    data: [0, 0, 0, 0, 0, 0, 0],
-                    color: () => "#2046AE",
-                    strokeWidth: 3,
-                  },
-                  {
-                    data: [0, 0, 0, 0, 0, 0, 0],
-                    color: () => "#FBBF24",
-                    strokeWidth: 3,
-                  },
-                ],
-              }
-            }
-          />
+              <StockRecommendationsSection
+                stockRecommendations={stockRecommendations || []}
+              />
 
-          <SeasonalInsightsSection seasonalInsights={seasonalInsights || []} />
+              <SalesTrendChart
+                chartData={
+                  chartData || {
+                    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+                    datasets: [
+                      {
+                        data: [0, 0, 0, 0, 0, 0, 0],
+                        color: () => "#2046AE",
+                        strokeWidth: 3,
+                      },
+                      {
+                        data: [0, 0, 0, 0, 0, 0, 0],
+                        color: () => "#FBBF24",
+                        strokeWidth: 3,
+                      },
+                    ],
+                  }
+                }
+              />
 
-          <MonthlyReportCard
-            monthlyReport={
-              monthlyReport || {
-                month: "-",
-                totalSales: 0,
-                totalCost: 0,
-                totalProfit: 0,
-              }
-            }
-            pdfLoading={pdfLoading}
-            onDownload={generatePDFReport}
-          />
+              <SeasonalInsightsSection seasonalInsights={seasonalInsights || []} />
+
+              <MonthlyReportCard
+                monthlyReport={
+                  monthlyReport || {
+                    month: "-",
+                    totalSales: 0,
+                    totalCost: 0,
+                    totalProfit: 0,
+                  }
+                }
+                reportMonth={reportMonth}
+                onOpenMonthPicker={() => setIsReportPickerVisible(true)}
+                pdfLoading={pdfLoading}
+                onDownload={generatePDFReport}
+              />
+            </>
+          )}
 
           <View style={{ height: verticalScale(40) }} />
         </ScrollView>
-
-        {/*
-          FIX: Overlay rendered AFTER ScrollView (paint order = on top)
-          with no zIndex so it never forms a stacking context.
-          pointerEvents="none" means it shows the spinner but swallows
-          zero touches.
-        */}
-        {dataLoading && (
-          <View style={styles.loadingOverlay} pointerEvents="none">
-            <ActivityIndicator size="large" color="#1155CC" />
-            <Text style={styles.loadingText}>Loading financial data...</Text>
-          </View>
-        )}
       </SafeAreaView>
 
-      {/*
-        FIX: DateTimePickerModal lives OUTSIDE SafeAreaView as a sibling
-        of the entire content tree. No zIndex from any child can ever
-        block it. Always mounted so the native modal layer is never torn
-        down mid-gesture.
-      */}
-      <DateTimePickerModal
-        isVisible={isDatePickerVisible}
-        mode="date"
-        date={selectedDate}
-        onConfirm={handleDateConfirm}
-        onCancel={hideDatePicker}
-        maximumDate={new Date()}
-        display="default"
-        themeVariant="light"
-        accentColor="#1155CC"
-        confirmTextIOS="Apply"
-        cancelTextIOS="Cancel"
+      {/* Day / week / month picker, as a bottom sheet (depends on the filter). */}
+      <PeriodPickerSheet
+        visible={isPickerVisible}
+        period={selectedPeriod}
+        value={summaryRange}
+        onSelect={setSummaryRange}
+        onClose={hidePicker}
+      />
+
+      {/* Monthly Report month: same month-grid sheet. */}
+      <PeriodPickerSheet
+        visible={isReportPickerVisible}
+        period="Month"
+        value={reportMonth}
+        onSelect={setReportMonth}
+        onClose={() => setIsReportPickerVisible(false)}
       />
     </View>
   );

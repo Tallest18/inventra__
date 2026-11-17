@@ -3,6 +3,8 @@ import { formatCurrency } from "@/utils/formatters";
 import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
 import React from "react";
+import { ListFooterLoader } from "@/components/ui";
+import { isNearBottom } from "@/hooks/useInfiniteList";
 import { Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -28,6 +30,9 @@ export interface Sale {
 
 interface SalesHistoryProps {
   sales: Sale[];
+  /** Infinite scroll: called near the bottom to fetch the next page. */
+  onEndReached?: () => void;
+  loadingMore?: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -186,7 +191,11 @@ const SaleCard: React.FC<{ sale: Sale }> = ({ sale }) => {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-const SalesHistory: React.FC<SalesHistoryProps> = ({ sales }) => {
+const SalesHistory: React.FC<SalesHistoryProps> = ({
+  sales,
+  onEndReached,
+  loadingMore = false,
+}) => {
   if (sales.length === 0) {
     return (
       <ScrollView
@@ -222,7 +231,13 @@ const SalesHistory: React.FC<SalesHistoryProps> = ({ sales }) => {
     <ScrollView
       style={styles.productsContainer}
       showsVerticalScrollIndicator={false}
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
       contentContainerStyle={styles.scrollContent}
+      onScroll={(e) => {
+        if (onEndReached && isNearBottom(e)) onEndReached();
+      }}
+      scrollEventThrottle={200}
     >
       <View style={styles.historyContainer}>
         {Array.from(groupMap.values()).map(
@@ -236,6 +251,7 @@ const SalesHistory: React.FC<SalesHistoryProps> = ({ sales }) => {
           ),
         )}
       </View>
+      <ListFooterLoader loading={loadingMore} />
       <View style={styles.bottomPadding} />
     </ScrollView>
   );

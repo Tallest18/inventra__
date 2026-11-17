@@ -18,7 +18,7 @@ interface PinPadProps {
   /** The digits entered so far. */
   value: string;
   onChange: (next: string) => void;
-  /** Label above the dots — "ENTER PIN" / "CONFIRM PIN". */
+  /** Label above the dots  "ENTER PIN" / "CONFIRM PIN". */
   label: string;
   /** Two-segment progress bar on the create/confirm screens. */
   progress?: { step: number; total: number };

@@ -19,7 +19,9 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFFFF",
     borderRadius: moderateScale(12),
-    padding: scale(isSmallDevice ? 8 : 12),
+    paddingHorizontal: scale(isSmallDevice ? 8 : 12),
+    // A bit more top/bottom room so label, value and badge breathe.
+    paddingVertical: verticalScale(isSmallDevice ? 14 : 18),
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
@@ -42,13 +44,13 @@ export const styles = StyleSheet.create({
   summaryLabel: {
     fontSize: getFontSize(moderateScale(isSmallDevice ? 9 : 11)),
     color: "#6B7280",
-    marginBottom: verticalScale(5),
+    marginBottom: verticalScale(isSmallDevice ? 8 : 10),
     fontFamily: "DMSans_400Regular",
   },
   summaryValue: {
     fontSize: getFontSize(moderateScale(isSmallDevice ? 12 : 15)),
     color: "#1F2937",
-    marginBottom: verticalScale(5),
+    marginBottom: verticalScale(isSmallDevice ? 8 : 10),
     fontFamily: "DMSans_700Bold",
   },
   changeIndicator: {
@@ -57,6 +59,13 @@ export const styles = StyleSheet.create({
     gap: scale(3),
     borderRadius: moderateScale(10),
     paddingHorizontal: scale(6),
+  },
+  changeBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: moderateScale(8),
+    paddingVertical: moderateScale(3),
+    borderRadius: moderateScale(10),
+    maxWidth: "100%",
   },
   changeText: {
     fontSize: getFontSize(moderateScale(isSmallDevice ? 9 : 11)),
@@ -78,6 +87,7 @@ export const styles = StyleSheet.create({
   },
 
   dailySummaryHeader: {
+    display: "flex",
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -141,6 +151,16 @@ export const styles = StyleSheet.create({
     padding: scale(10),
     gap: scale(10),
   },
+  focusedProductCard: {
+    borderWidth: 2,
+    borderColor: "#1155CC",
+    backgroundColor: "#EFF6FF",
+    shadowColor: "#1155CC",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 4,
+  },
   productIcon: {
     width: scale(42),
     height: scale(42),
@@ -188,12 +208,14 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderLeftWidth: 5,
     borderColor: "#FF6900",
+    gap: scale(12),
   },
   slowStockLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: scale(10),
     flex: 1,
+    marginRight: scale(8),
   },
   slowStockIcon: {
     width: scale(36),
@@ -208,7 +230,10 @@ export const styles = StyleSheet.create({
     height: scale(36),
     borderRadius: moderateScale(18),
   },
-  slowStockInfo: { flex: 1 },
+  slowStockInfo: {
+    flex: 1,
+    paddingRight: scale(4),
+  },
   slowStockName: {
     fontSize: getFontSize(moderateScale(isSmallDevice ? 12 : 14)),
     color: "#1F2937",
@@ -225,6 +250,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: scale(10),
     paddingVertical: verticalScale(10),
     borderRadius: moderateScale(10),
+    flexShrink: 0,
   },
   slowStockDays: {
     fontSize: getFontSize(moderateScale(isSmallDevice ? 11 : 13)),
@@ -263,10 +289,18 @@ export const styles = StyleSheet.create({
   },
 
   chartCard: {
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#FFFFFF",
     borderRadius: moderateScale(12),
     padding: scale(12),
-    alignItems: "center",
+    // stretch: the chart measures this width and draws to fit it.
+    alignItems: "stretch",
+  },
+  chartHint: {
+    marginTop: verticalScale(4),
+    fontSize: getFontSize(moderateScale(11)),
+    color: "#98A2B3",
+    textAlign: "center",
+    fontFamily: "DMSans_400Regular",
   },
   chartLegend: {
     flexDirection: "row",
@@ -383,7 +417,7 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#1155CC",
-    paddingVertical: verticalScale(13),
+    paddingVertical: verticalScale(20),
     borderRadius: moderateScale(50),
     gap: scale(8),
   },

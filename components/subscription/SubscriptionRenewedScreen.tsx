@@ -14,7 +14,7 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-/** "01 August 2026" — built by hand so it reads the same on every JS engine. */
+/** "01 August 2026"  built by hand so it reads the same on every JS engine. */
 const formatLongDate = (iso?: string | null): string => {
   const date = iso ? new Date(iso) : new Date();
   const safe = isNaN(date.getTime()) ? new Date() : date;

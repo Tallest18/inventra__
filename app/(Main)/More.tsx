@@ -1,5 +1,5 @@
 import { useUnreadNotificationsCount } from "@/hooks/useNotifications";
-import { clearTokens, getProfile, logout } from "@/src/api";
+import { clearTokens, getProfile, logout, signedOutRoute } from "@/src/api";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import ConfirmModal from "../../components/ui/ConfirmModal";
 import SuccessModal from "../../components/ui/SuccessModal";
+import { MoreSkeleton } from "@/components/skeletons";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -78,6 +79,11 @@ const More = () => {
       title: "SUPPORT",
       options: [
         {
+          title: "Subscription",
+          icon: "card-outline",
+          action: () => router.push("/(Routes)/SubscriptionScreen" as any),
+        },
+        {
           title: "Help & Support",
           icon: "help-circle-outline",
           action: () => router.push("/(Routes)/HelpCenterScreen"),
@@ -115,9 +121,9 @@ const More = () => {
     }
   };
 
-  const handleSuccessClose = () => {
+  const handleSuccessClose = async () => {
     setShowSuccessModal(false);
-    router.replace("/(Auth)/WelcomeScreen");
+    router.replace(await signedOutRoute());
   };
 
   // ─── Render helpers ────────────────────────────────────────────────────────
@@ -138,7 +144,7 @@ const More = () => {
       </View>
       <Text style={styles.optionText}>{option.title}</Text>
 
-      {/* Notification badge — only shown when badge count > 0 */}
+      {/* Notification badge  only shown when badge count > 0 */}
       {option.badge != null && option.badge > 0 && (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{option.badge}</Text>
@@ -153,8 +159,8 @@ const More = () => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.safeArea, styles.centered]}>
-        <ActivityIndicator size="large" color="#1155CC" />
+      <SafeAreaView style={styles.safeArea}>
+        <MoreSkeleton />
       </SafeAreaView>
     );
   }

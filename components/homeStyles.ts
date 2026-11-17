@@ -178,6 +178,16 @@ export const homeStyles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: verticalScale(8),
   },
+  // White card that holds the New Product / Quick Sell buttons (per design).
+  actionsCard: {
+    flexDirection: "row",
+    gap: scale(10),
+    marginHorizontal: scale(20),
+    marginBottom: verticalScale(12),
+    padding: scale(14),
+    backgroundColor: "white",
+    borderRadius: moderateScale(16),
+  },
   actionBox: {
     display: "flex",
     color: "white",
@@ -188,7 +198,8 @@ export const homeStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#e05210",
     borderRadius: moderateScale(12),
-    padding: scale(20),
+    paddingVertical: scale(20),
+    paddingHorizontal: scale(12),
     minHeight: verticalScale(60),
   },
   salesSummarySection: {

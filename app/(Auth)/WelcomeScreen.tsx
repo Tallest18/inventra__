@@ -68,7 +68,6 @@ const WelcomeScreen: React.FC = () => {
       // that this number already has an account, so it is the only call the
       // happy path needs.
       const otp = await registerNumber(fullPhone);
-      await saveLastPhone(fullPhone);
 
       router.push({
         pathname: "/(Auth)/VerificationScreen",
@@ -113,7 +112,7 @@ const WelcomeScreen: React.FC = () => {
 
         // Verified the number once but quit before setting a PIN. register-number
         // will keep returning 409, so forgot-pin is the only route to a fresh
-        // OTP — then business type and PIN as normal.
+        // OTP  then business type and PIN as normal.
         const otp = await forgotPin(fullPhone);
         router.push({
           pathname: "/(Auth)/VerificationScreen",
@@ -179,7 +178,13 @@ const WelcomeScreen: React.FC = () => {
               loading && styles.fieldDisabled,
             ]}
           >
-            <Text style={styles.flag}>🇳🇬</Text>
+            {/* Drawn rather than the 🇳🇬 emoji: Windows has no flag emoji
+                glyphs and renders it as the letters "NG". */}
+            <View style={styles.flag}>
+              <View style={styles.flagGreen} />
+              <View style={styles.flagWhite} />
+              <View style={styles.flagGreen} />
+            </View>
             <Text style={styles.dialCode}>+234</Text>
             <View style={styles.divider} />
             <Ionicons
@@ -308,12 +313,22 @@ const styles = StyleSheet.create({
   },
   fieldError: { borderColor: AUTH_COLORS.danger },
   fieldDisabled: { opacity: 0.6 },
-  flag: { fontSize: moderateScale(16) },
+  flag: {
+    flexDirection: "row",
+    width: moderateScale(18),
+    height: moderateScale(12),
+    borderRadius: 2,
+    overflow: "hidden",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: AUTH_COLORS.border,
+  },
+  flagGreen: { flex: 1, backgroundColor: "#008751" },
+  flagWhite: { flex: 1, backgroundColor: "#FFFFFF" },
   dialCode: {
     fontSize: moderateScale(15),
     fontFamily: AUTH_FONTS.semibold,
     color: AUTH_COLORS.text,
-    marginLeft: scale(6),
+    marginLeft: scale(10),
   },
   divider: {
     width: 1,

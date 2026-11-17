@@ -1,6 +1,7 @@
 import React, { useContext } from "react";
 import { Alert, FlatList, SafeAreaView } from "react-native";
 
+import { HomeSkeleton } from "@/components/skeletons";
 import HomeHeader from "@/components/HomeHeader";
 import NotificationFeed from "@/components/NotificationFeed";
 import SalesSummary from "@/components/SalesSummary";
@@ -15,7 +16,7 @@ import ActionButtons from "../../components/ActionButtons";
 // so it can surface on any screen, not just this one.
 const Home = () => {
   const { openAddProduct, openRestockProduct } = useContext(AddProductContext);
-  const { inventory, notifications, userData } = useHomeData();
+  const { inventory, notifications, userData, loading } = useHomeData();
 
   const toAddProductModel = (item: any) => ({
     id: String(item.id),
@@ -80,6 +81,15 @@ const Home = () => {
       onRestockById={handleRestockById}
     />
   );
+
+  if (loading && inventory.length === 0 && !userData.todaySales) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <HomeHeader name={userData.name} profileImage={userData.profileImage} />
+        <HomeSkeleton />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>

@@ -1,3 +1,5 @@
+export * from "./content";
+export * from "./catalog";
 export * from "./auth";
 export * from "./authErrors";
 export * from "./client";

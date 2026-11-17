@@ -7,6 +7,8 @@ import {
   Alert,
   FlatList,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -332,20 +334,29 @@ const QuickSellScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Quick Sell</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back" size={24} color="#111827" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Quick Sell</Text>
+          <View style={{ width: 40 }} />
+        </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Search Bar */}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={{ paddingBottom: 160 + insets.bottom, flexGrow: 1 }}
+        >
+          {/* Search Bar */}
         <View style={styles.searchContainer}>
           <Feather name="search" size={20} color="#9CA3AF" />
           <TextInput
@@ -446,6 +457,7 @@ const QuickSellScreen = () => {
         </View>
       )}
       {toastElement}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

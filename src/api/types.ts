@@ -3,7 +3,7 @@ export interface TokenPair {
   refresh: string;
 }
 
-/** Where the user is in onboarding. The app routes on this — it covers every case. */
+/** Where the user is in onboarding. The app routes on this  it covers every case. */
 export type OnboardingStatus =
   | "verify_number"
   | "start_trial"
@@ -23,8 +23,12 @@ export interface UserProfile {
   name: string;
   business_name?: string | null;
   business_type?: string | null;
+  business_description?: string;
   profile_image?: string | null;
   has_pin: boolean;
+  phone_verified?: boolean;
+  days_active?: number;
+  products_added?: number;
   onboarding_status: OnboardingStatus;
   subscription_status: SubscriptionStatus;
   access_active: boolean;
@@ -48,7 +52,7 @@ export interface OtpRequestResponse {
   verification_id: string;
   expires_in: number;
   message: string;
-  /** MOCK MODE only — the backend echoes the OTP when OTP_MOCK_MODE is on. */
+  /** MOCK MODE only  the backend echoes the OTP when OTP_MOCK_MODE is on. */
   code?: string;
 }
 
@@ -106,7 +110,7 @@ export interface SubscriptionNotice {
   reminder?: SubscriptionReminder;
   title?: string;
   subtitle?: string;
-  /** e.g. "Free Trial Ending Soon — 7 days left". */
+  /** e.g. "Free Trial Ending Soon  7 days left". */
   banner?: string;
   body?: string;
   note?: string;
@@ -122,7 +126,7 @@ export interface SubscriptionNotice {
   dismiss?: string;
 }
 
-/** The shape the trial modal renders — `TrialOffer` satisfies it. */
+/** The shape the trial modal renders  `TrialOffer` satisfies it. */
 export interface OfferContent {
   title: string;
   subtitle: string;
@@ -154,6 +158,16 @@ export interface Subscription {
   amount_naira?: number;
   interval?: string;
   last_payment_reference?: string | null;
+  plan_name?: string;
+  /** Trial start, then each paid renewal (oldest first). */
+  timeline?: {
+    kind: "trial" | "renewal";
+    title: string;
+    date: string;
+    status: "activated" | "paid";
+    amount_naira: number;
+    reference?: string;
+  }[];
   trial_offer?: TrialOffer;
   ending_soon_notice?: SubscriptionNotice | null;
   expired_notice?: SubscriptionNotice | null;

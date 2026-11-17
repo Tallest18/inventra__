@@ -166,6 +166,15 @@ export const styles = StyleSheet.create({
     marginBottom: verticalScale(16),
     overflow: "hidden",
   },
+  focusedProductCard: {
+    borderWidth: 2,
+    borderColor: "#1155CC",
+    shadowColor: "#1155CC",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 6,
+  },
   cardContent: {
     padding: scale(isSmallDevice ? 12 : 16),
   },

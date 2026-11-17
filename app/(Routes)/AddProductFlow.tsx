@@ -1,4 +1,5 @@
 import { Product, useAddProductForm } from "@/hooks/useAddProductForm";
+import type { CatalogProduct } from "@/src/api/catalog";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import SuccessModal from "../../components/ui/SuccessModal";
@@ -35,6 +36,7 @@ const AddProductFlow: React.FC<AddProductFlowProps> = ({
     updateFormData,
     resetForm,
     populateFromProduct,
+    populateFromCatalog,
     validateStep,
     handleSaveProduct,
     setShowSuccessModal,
@@ -80,8 +82,10 @@ const AddProductFlow: React.FC<AddProductFlowProps> = ({
     setShowSearchModal(true);
   };
 
-  const handleSelectProduct = (product: Product) => {
-    populateFromProduct(product);
+  // Picked from the shared catalog: prefill what the catalog knows, the user
+  // completes stock, prices and the rest in the normal form.
+  const handleSelectProduct = (product: CatalogProduct) => {
+    populateFromCatalog(product);
     setShowSearchModal(false);
     setShowFormModal(true);
   };

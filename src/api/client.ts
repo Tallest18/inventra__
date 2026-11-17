@@ -11,6 +11,7 @@ import {
     getAccessToken,
     getRefreshToken,
     saveTokens,
+    signedOutRoute,
 } from "./tokenStorage";
 import type { RefreshTokenResponse } from "./types";
 
@@ -35,7 +36,7 @@ const refreshClient = axios.create({
 /**
  * Reading the token must never be able to block a request. On web a wedged or
  * blocked storage backend can leave this promise unsettled, and because it runs
- * inside the request interceptor the call is then never dispatched at all — no
+ * inside the request interceptor the call is then never dispatched at all  no
  * network entry, no error. Falling back to an anonymous request is always
  * better than hanging: the auth endpoints that matter here are public anyway.
  */
@@ -55,7 +56,7 @@ let endingSession = false;
 /**
  * True while the subscription gate is closed (no trial, or an expired one).
  * Background pollers consult this so they stop hammering endpoints that can
- * only answer 403 — a single reload was otherwise firing 31 of them.
+ * only answer 403  a single reload was otherwise firing 31 of them.
  * Cleared automatically by the next successful response.
  */
 let accessGated = false;
@@ -73,7 +74,7 @@ export const setAccessGated = (value: boolean): void => {
 };
 
 /**
- * Called when the API says the session is gone — a 401 that a token refresh
+ * Called when the API says the session is gone  a 401 that a token refresh
  * could not rescue ("Authentication credentials were not provided."). Clears
  * the stored session and sends the user back to the login screen.
  *
@@ -88,7 +89,7 @@ async function endSession(): Promise<void> {
   endingSession = true;
 
   try {
-    router.replace("/(Auth)/WelcomeScreen");
+    router.replace(await signedOutRoute());
   } catch {
     // Navigating before the router has mounted is not fatal: the root layout
     // bootstraps from storage, which we just cleared, and lands on auth anyway.
@@ -160,8 +161,8 @@ apiClient.interceptors.response.use(
       accessGated = true;
     }
 
-    // A token whose user no longer exists — a deleted account, or a database
-    // that has been reset underneath us — is just as dead as a rejected one,
+    // A token whose user no longer exists  a deleted account, or a database
+    // that has been reset underneath us  is just as dead as a rejected one,
     // but the backend reports it with its own code rather than a 401. Match on
     // the code so the status does not matter.
     if ((error.response?.data as any)?.code === "user_not_found") {

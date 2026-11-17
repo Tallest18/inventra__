@@ -1,7 +1,11 @@
+// app/(Routes)/PrivacyPolicy.tsx: "Privacy Policy" (Figma).
+// Text comes from the admin panel (Django admin → App content → Privacy policy).
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
 import React from "react";
 import {
+  ActivityIndicator,
+  Linking,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -10,135 +14,126 @@ import {
   View,
 } from "react-native";
 
+import { BLUE, PAGE_BG, ScreenHeader } from "@/components/settings/SettingsUI";
+import { Skeleton } from "@/components/ui";
+import { getPrivacyPolicy, whatsappLink } from "@/src/api";
+
+/** Body text: lines starting with "• " or "- " are bullets, others paragraphs. */
+const Body: React.FC<{ text: string }> = ({ text }) => (
+  <View style={{ gap: 6 }}>
+    {text.split("\n").filter((l) => l.trim()).map((line, i) => {
+      const bullet = /^\s*(•|-)\s+/.test(line);
+      return bullet ? (
+        <View key={i} style={styles.bulletRow}>
+          <Text style={styles.body}>•</Text>
+          <Text style={[styles.body, { flex: 1 }]}>{line.replace(/^\s*(•|-)\s+/, "")}</Text>
+        </View>
+      ) : (
+        <Text key={i} style={styles.body}>{line.trim()}</Text>
+      );
+    })}
+  </View>
+);
+
 const PrivacyPolicy = () => {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["content-privacy"],
+    queryFn: getPrivacyPolicy,
+  });
+  const updated = data?.last_updated_label ? `Last updated: ${data.last_updated_label}` : "Privacy Policy";
+  const year = data?.last_updated ? new Date(data.last_updated).getFullYear() : new Date().getFullYear();
+  // The last section is the contact one: its buttons follow it.
+  const sections = data?.sections ?? [];
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Privacy Policy</Text>
-        <View style={styles.spacer} />
-      </View>
+    <SafeAreaView style={styles.container}>
+      <ScreenHeader title="Privacy Policy" subtitle={updated} />
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+        {isLoading ? (
+          <View style={{ gap: 14 }}>
+            <Skeleton width="100%" height={16} />
+            <Skeleton width="90%" height={16} />
+            <Skeleton width="75%" height={16} />
+            <View style={{ marginVertical: 12, height: 1, backgroundColor: "#E5E7EB" }} />
+            {[1, 2, 3].map((i) => (
+              <View key={i} style={{ gap: 8, marginBottom: 16 }}>
+                <Skeleton width="45%" height={18} />
+                <Skeleton width="100%" height={14} />
+                <Skeleton width="95%" height={14} />
+                <Skeleton width="80%" height={14} />
+              </View>
+            ))}
+          </View>
+        ) : isError || !data ? (
+          <TouchableOpacity onPress={() => refetch()} style={{ marginTop: 40, alignItems: "center" }}>
+            <Text style={{ color: BLUE, fontFamily: "DMSans_500Medium" }}>
+              Couldn't load the policy. Tap to try again.
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <>
+            <Text style={styles.intro}>{data.intro}</Text>
+            <View style={styles.divider} />
 
-      <ScrollView 
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.lastUpdated}>Last updated: March 13, 2026</Text>
+            {sections.map((s) => (
+              <View key={s.number} style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  {s.number}. {s.title}
+                </Text>
+                <Body text={s.body} />
+              </View>
+            ))}
 
-        <Text style={styles.paragraph}>
-          Welcome to Inventra. We respect your privacy and are committed to protecting the personal data of our retail merchants. This Privacy Policy explains how we collect, use, and safeguard your personal and business information when you use our mobile application.
-        </Text>
+            <TouchableOpacity
+              style={[styles.channel, { backgroundColor: "#EAFBF0" }]}
+              onPress={() => Linking.openURL(whatsappLink(data.contact))}
+            >
+              <View style={[styles.channelIcon, { backgroundColor: "#D1F5DE" }]}>
+                <Ionicons name="chatbubble-outline" size={20} color="#15803D" />
+              </View>
+              <View>
+                <Text style={styles.channelTitle}>Chat on WhatsApp</Text>
+                <Text style={styles.channelSub}>Quick support from our team</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.channel, { backgroundColor: "#DCE5F5" }]}
+              onPress={() => Linking.openURL(`mailto:${data.contact.email}?subject=${encodeURIComponent("Privacy question")}`)}
+            >
+              <View style={[styles.channelIcon, { backgroundColor: "#C9D7F0" }]}>
+                <Ionicons name="mail-outline" size={20} color={BLUE} />
+              </View>
+              <View>
+                <Text style={styles.channelTitle}>Email Support</Text>
+                <Text style={styles.channelSub}>{data.contact.email}</Text>
+              </View>
+            </TouchableOpacity>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>1. Information We Collect</Text>
-          <Text style={styles.bulletPoint}>
-            • <Text style={styles.bulletBold}>Profile Information:</Text> Your name, phone number, business name, and business type registered during onboarding.
-          </Text>
-          <Text style={styles.bulletPoint}>
-            • <Text style={styles.bulletBold}>Inventory & Sales Records:</Text> Information about your products, unit pricing, cost prices, quantities, transactions, and restock details.
-          </Text>
-          <Text style={styles.bulletPoint}>
-            • <Text style={styles.bulletBold}>App Images:</Text> Images uploaded for your product items and user profile pictures.
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>2. How We Use Your Data</Text>
-          <Text style={styles.paragraph}>
-            We process your information solely to deliver local database storage services, perform analytics on sales and profit trends, trigger low-stock alerts, and synchronize your data securely with our backend API.
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>3. Data Storage & Security</Text>
-          <Text style={styles.paragraph}>
-            Your data is cached locally on your device for offline operation and transmitted securely via industry-standard SSL encryption to our central database servers. Access is protected by JSON Web Token (JWT) credentials.
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>4. Contact Us</Text>
-          <Text style={styles.paragraph}>
-            If you have questions about our data practices or want to request account deletion, please reach out via our Help Center or contact support at support@inventra.app.
-          </Text>
-        </View>
+            <View style={[styles.divider, { marginTop: 26 }]} />
+            <Text style={styles.footer}>{updated}</Text>
+            <Text style={styles.footer}>© {year} Inventra. All rights reserved.</Text>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#F9F9F9",
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 15,
-    paddingBottom: 15,
-    backgroundColor: "white",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 20,
-    color: "#333",
-    fontFamily: "DMSans_700Bold",
-  },
-  spacer: {
-    width: 24,
-  },
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  lastUpdated: {
-    fontSize: 13,
-    color: "#777",
-    fontFamily: "DMSans_400Regular",
-    marginBottom: 20,
-  },
-  paragraph: {
-    fontSize: 15,
-    color: "#4A4A4A",
-    lineHeight: 22,
-    fontFamily: "DMSans_400Regular",
-    marginBottom: 16,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    color: "#1155CC",
-    fontFamily: "DMSans_700Bold",
-    marginBottom: 12,
-  },
-  bulletPoint: {
-    fontSize: 15,
-    color: "#4A4A4A",
-    lineHeight: 22,
-    fontFamily: "DMSans_400Regular",
-    marginBottom: 8,
-    paddingLeft: 8,
-  },
-  bulletBold: {
-    fontFamily: "DMSans_700Bold",
-    color: "#2C3E50",
-  },
+  container: { flex: 1, backgroundColor: PAGE_BG },
+  scroll: { flex: 1, minHeight: 0 },
+  content: { paddingHorizontal: 20, paddingBottom: 48 },
+  intro: { fontSize: 16, lineHeight: 25, color: "#4B5563", fontFamily: "DMSans_400Regular", marginTop: 4 },
+  divider: { height: 1, backgroundColor: "#D0D7E3", marginTop: 16 },
+  section: { marginTop: 26 },
+  sectionTitle: { fontSize: 16.5, color: "#1C1C1C", fontFamily: "DMSans_700Bold", marginBottom: 10 },
+  body: { fontSize: 15.5, lineHeight: 25, color: "#6B7280", fontFamily: "DMSans_400Regular" },
+  bulletRow: { flexDirection: "row", gap: 8, paddingLeft: 4 },
+  channel: { flexDirection: "row", alignItems: "center", gap: 14, borderRadius: 18, padding: 16, marginTop: 14 },
+  channelIcon: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  channelTitle: { fontSize: 16, color: "#1C1C1C", fontFamily: "DMSans_600SemiBold" },
+  channelSub: { fontSize: 13, color: "#6B7280", fontFamily: "DMSans_400Regular", marginTop: 2 },
+  footer: { textAlign: "center", marginTop: 10, fontSize: 13, color: "#98A2B3", fontFamily: "DMSans_400Regular" },
 });
 
 export default PrivacyPolicy;

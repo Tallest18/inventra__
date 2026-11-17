@@ -22,7 +22,7 @@ interface Props {
 /**
  * Shared, presentational product summary used both on the ProductDetails
  * screen and as the review step of the Add/Edit Product flow, so the layout
- * stays consistent everywhere. It only renders content — callers provide the
+ * stays consistent everywhere. It only renders content  callers provide the
  * scroll container and any header.
  */
 const ProductSummaryView: React.FC<Props> = ({ imageUri, sections, footer }) => (

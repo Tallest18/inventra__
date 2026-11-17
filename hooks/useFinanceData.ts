@@ -1,3 +1,4 @@
+import { DateRange, toYMD } from "@/utils/periodRange";
 import { apiClient } from "@/src/api/client";
 import * as endpoints from "@/src/api/endpoints";
 import { useQuery } from "@tanstack/react-query";
@@ -20,7 +21,25 @@ const DEFAULT_CHART_DATA: ChartData = {
   ],
 };
 
-export const useFinanceData = (selectedPeriod: Period, selectedDate: Date) => {
+/**
+ * These finance endpoints moved to the paginated shape ({ count, results }).
+ * Reading only the old keys made every list empty, and each Finance section
+ * hides itself when empty, so the sections silently disappeared.
+ */
+const listFrom = (raw: any, legacyKey: string): any[] =>
+  Array.isArray(raw?.results)
+    ? raw.results
+    : Array.isArray(raw?.[legacyKey])
+      ? raw[legacyKey]
+      : Array.isArray(raw)
+        ? raw
+        : [];
+
+export const useFinanceData = (
+  selectedPeriod: Period,
+  summaryRange: DateRange,
+  reportMonth: DateRange,
+) => {
   // Map UI period to API period
   const period = useMemo(() => {
     if (selectedPeriod === "Today") return "today";
@@ -30,13 +49,15 @@ export const useFinanceData = (selectedPeriod: Period, selectedDate: Date) => {
 
   // Daily summary (with ?date=YYYY-MM-DD)
 
+  // One day, a Mon–Sun week or a month (?start&end, local dates).
+  const startYMD = toYMD(summaryRange.start);
+  const endYMD = toYMD(summaryRange.end);
   const { data: dailySummaryRaw, isLoading: loadingDaily } = useQuery({
-    queryKey: ["finance-daily-summary", selectedDate],
+    queryKey: ["finance-daily-summary", startYMD, endYMD],
     queryFn: async () => {
-      const dateStr = selectedDate.toISOString().split("T")[0];
       const res = await apiClient.get(
         endpoints.PRODUCTS_FINANCE_DAILY_SUMMARY,
-        { params: { date: dateStr } },
+        { params: { start: startYMD, end: endYMD } },
       );
       return res.data;
     },
@@ -73,22 +94,21 @@ export const useFinanceData = (selectedPeriod: Period, selectedDate: Date) => {
   const financialSummary =
     financialSummaryRaw && financialSummaryRaw.summary
       ? {
-          totalSales: financialSummaryRaw.summary.total_sales ?? 1,
-          totalCost: financialSummaryRaw.summary.total_cost ?? 1,
-          totalProfit: financialSummaryRaw.summary.total_profit ?? 1,
-          totalSalesChange:
-            financialSummaryRaw.summary.total_sales_change ?? 900,
-          totalCostChange: financialSummaryRaw.summary.total_cost_change ?? 0,
-          totalProfitChange:
-            financialSummaryRaw.summary.total_profit_change ?? 0,
+          totalSales: financialSummaryRaw.summary.total_sales ?? 0,
+          totalCost: financialSummaryRaw.summary.total_cost ?? 0,
+          totalProfit: financialSummaryRaw.summary.total_profit ?? 0,
+          // null = no previous period to compare with (shown as neutral).
+          totalSalesChange: financialSummaryRaw.summary.total_sales_change ?? null,
+          totalCostChange: financialSummaryRaw.summary.total_cost_change ?? null,
+          totalProfitChange: financialSummaryRaw.summary.total_profit_change ?? null,
         }
       : {
           totalSales: 0,
           totalCost: 0,
           totalProfit: 0,
-          totalSalesChange: 0,
-          totalCostChange: 0,
-          totalProfitChange: 0,
+          totalSalesChange: null,
+          totalCostChange: null,
+          totalProfitChange: null,
         };
 
   // Top products
@@ -102,10 +122,8 @@ export const useFinanceData = (selectedPeriod: Period, selectedDate: Date) => {
     },
   });
 
-  // The API returns { period, top_products: [...] }
-  const topProducts = Array.isArray(topProductsRaw?.top_products)
-    ? topProductsRaw.top_products
-    : [];
+  // The API is paginated: { count, results: [...] } (older builds: top_products).
+  const topProducts = listFrom(topProductsRaw, "top_products");
 
   // Slow moving stock
 
@@ -120,10 +138,8 @@ export const useFinanceData = (selectedPeriod: Period, selectedDate: Date) => {
     },
   });
 
-  // The API returns { slow_moving_stock: [...] }
-  const slowMovingStock = Array.isArray(slowMovingStockRaw?.slow_moving_stock)
-    ? slowMovingStockRaw.slow_moving_stock
-    : [];
+  // Paginated { results } (older builds: slow_moving_stock).
+  const slowMovingStock = listFrom(slowMovingStockRaw, "slow_moving_stock");
 
   // Stock recommendations
   const { data: stockRecommendationsRaw, isLoading: loadingRecs } = useQuery({
@@ -137,12 +153,8 @@ export const useFinanceData = (selectedPeriod: Period, selectedDate: Date) => {
     },
   });
 
-  // The API returns { recommendations: [...] }
-  const stockRecommendations = Array.isArray(
-    stockRecommendationsRaw?.recommendations,
-  )
-    ? stockRecommendationsRaw.recommendations
-    : [];
+  // Paginated { results } (older builds: recommendations).
+  const stockRecommendations = listFrom(stockRecommendationsRaw, "recommendations");
 
   // Seasonal insights
 
@@ -157,10 +169,8 @@ export const useFinanceData = (selectedPeriod: Period, selectedDate: Date) => {
     },
   });
 
-  // The API returns { insights: [...] }
-  const seasonalInsights = Array.isArray(seasonalInsightsRaw?.insights)
-    ? seasonalInsightsRaw.insights
-    : [];
+  // Paginated { results } (older builds: insights).
+  const seasonalInsights = listFrom(seasonalInsightsRaw, "insights");
 
   // Trends (for chart)
 
@@ -214,10 +224,21 @@ export const useFinanceData = (selectedPeriod: Period, selectedDate: Date) => {
   // Monthly report
 
   const { data: monthlyReportRaw, isLoading: loadingMonthly } = useQuery({
-    queryKey: ["finance-monthly-report"],
+    queryKey: [
+      "finance-monthly-report",
+      reportMonth.start.getFullYear(),
+      reportMonth.start.getMonth(),
+    ],
     queryFn: async () => {
+      // The API takes a 1-based month.
       const res = await apiClient.get(
         endpoints.PRODUCTS_FINANCE_MONTHLY_REPORT,
+        {
+          params: {
+            month: reportMonth.start.getMonth() + 1,
+            year: reportMonth.start.getFullYear(),
+          },
+        },
       );
       return res.data;
     },

@@ -2,9 +2,9 @@ export interface FinancialSummary {
   totalSales: number;
   totalCost: number;
   totalProfit: number;
-  totalSalesChange: number;
-  totalCostChange: number;
-  totalProfitChange: number;
+  totalSalesChange: number | null;
+  totalCostChange: number | null;
+  totalProfitChange: number | null;
 }
 
 export interface DailySummary {

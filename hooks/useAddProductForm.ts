@@ -4,6 +4,7 @@ import {
     PRODUCTS_USER_INVENTORY_ITEM,
 } from "@/src/api/endpoints";
 import { MULTIPART_CONFIG, readImage, toFormData } from "@/src/api/formData";
+import type { CatalogProduct } from "@/src/api/catalog";
 import { createRestock } from "@/src/api/products";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -151,6 +152,8 @@ export function useAddProductForm(
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  // Set when the user picked a product from the shared catalog search.
+  const [catalogProduct, setCatalogProduct] = useState<CatalogProduct | null>(null);
 
   const invalidateInventoryQueries = async () => {
     await queryClient.invalidateQueries({ queryKey: ["user-inventory"] });
@@ -173,7 +176,33 @@ export function useAddProductForm(
 
   const resetForm = () => {
     setFormData(INITIAL_FORM);
+    setCatalogProduct(null);
     setShowSuccessModal(false);
+  };
+
+  /**
+   * Prefill from a shared catalog product: what the catalog knows (name,
+   * category, barcode, photo, packaging). Stock, prices, threshold, expiry and
+   * supplier are the shop's own, so they are left for the user to fill in.
+   */
+  const populateFromCatalog = (item: CatalogProduct) => {
+    const quantityType =
+      item.quantity_type === "carton"
+        ? "Carton"
+        : item.quantity_type === "both"
+          ? "Both"
+          : "Single Items";
+    setCatalogProduct(item);
+    setFormData({
+      ...INITIAL_FORM,
+      productName: item.name,
+      category: item.category?.name ?? "",
+      barcode: item.barcode ?? "",
+      sku: item.barcode ?? "",
+      productImage: item.image_url ? { uri: item.image_url } : null,
+      quantityType,
+      unitsPerCarton: item.units_in_carton ? String(item.units_in_carton) : "",
+    });
   };
 
   const populateFromProduct = (product: Product) => {
@@ -217,51 +246,123 @@ export function useAddProductForm(
 
   const validateStep = (step: number): boolean => {
     if (step === 0) {
-      if (!formData.productName || !formData.category) {
+      if (!formData.productName.trim()) {
         Alert.alert(
           "Missing Information",
-          "Please fill in all required fields for Product Info.",
+          "Please enter a valid product name.",
+        );
+        return false;
+      }
+      if (!formData.category.trim()) {
+        Alert.alert(
+          "Missing Information",
+          "Please select or enter a product category.",
         );
         return false;
       }
     } else if (step === 1) {
       if (formData.quantityType === "Single Items") {
-        if (
-          !formData.numberOfItems ||
-          !formData.costPrice ||
-          !formData.sellingPrice
-        ) {
+        const units = parseInt(formData.numberOfItems, 10);
+        const cost = parseFloat(formData.costPrice);
+        const selling = parseFloat(formData.sellingPrice);
+
+        if (isNaN(units) || units <= 0) {
           Alert.alert(
-            "Missing Information",
-            "Please fill in all required fields for Pricing & Packaging.",
+            "Invalid Quantity",
+            "Please enter a valid number of units in stock (at least 1).",
+          );
+          return false;
+        }
+        if (isNaN(cost) || cost < 0) {
+          Alert.alert(
+            "Invalid Cost Price",
+            "Please enter a valid cost price (₦0 or higher).",
+          );
+          return false;
+        }
+        if (isNaN(selling) || selling <= 0) {
+          Alert.alert(
+            "Invalid Selling Price",
+            "Please enter a valid selling price greater than ₦0.",
           );
           return false;
         }
       } else if (formData.quantityType === "Carton") {
-        if (
-          !formData.unitsPerCarton ||
-          !formData.numberOfCartons ||
-          !formData.costPricePerCarton ||
-          !formData.sellingPricePerCarton
-        ) {
-          Alert.alert(
-            "Missing Information",
-            "Please fill in all required fields for Carton packaging.",
-          );
+        const unitsPerCarton = parseInt(formData.unitsPerCarton, 10);
+        const cartons = parseInt(formData.numberOfCartons, 10);
+        const costPerCarton = parseFloat(formData.costPricePerCarton);
+        const sellingPerCarton = parseFloat(formData.sellingPricePerCarton);
+
+        if (isNaN(unitsPerCarton) || unitsPerCarton <= 0) {
+          Alert.alert("Invalid Input", "Please enter units per carton (at least 1).");
+          return false;
+        }
+        if (isNaN(cartons) || cartons <= 0) {
+          Alert.alert("Invalid Input", "Please enter number of cartons (at least 1).");
+          return false;
+        }
+        if (isNaN(costPerCarton) || costPerCarton < 0) {
+          Alert.alert("Invalid Input", "Please enter a valid cost price per carton.");
+          return false;
+        }
+        if (isNaN(sellingPerCarton) || sellingPerCarton <= 0) {
+          Alert.alert("Invalid Input", "Please enter a valid selling price per carton greater than ₦0.");
           return false;
         }
       } else if (formData.quantityType === "Both") {
-        if (
-          !formData.unitsPerCarton ||
-          !formData.numberOfCartons ||
-          !formData.costPricePerCarton ||
-          !formData.sellingPricePerCarton ||
-          !formData.sellingPricePerUnit
-        ) {
-          Alert.alert(
-            "Missing Information",
-            "Please fill in all required fields for Both packaging types.",
-          );
+        const unitsPerCarton = parseInt(formData.unitsPerCarton, 10);
+        const cartons = parseInt(formData.numberOfCartons, 10);
+        const costPerCarton = parseFloat(formData.costPricePerCarton);
+        const sellingPerCarton = parseFloat(formData.sellingPricePerCarton);
+        const sellingPerUnit = parseFloat(formData.sellingPricePerUnit);
+
+        if (isNaN(unitsPerCarton) || unitsPerCarton <= 0) {
+          Alert.alert("Invalid Input", "Please enter units per carton (at least 1).");
+          return false;
+        }
+        if (isNaN(cartons) || cartons <= 0) {
+          Alert.alert("Invalid Input", "Please enter number of cartons (at least 1).");
+          return false;
+        }
+        if (isNaN(costPerCarton) || costPerCarton < 0) {
+          Alert.alert("Invalid Input", "Please enter a valid cost price per carton.");
+          return false;
+        }
+        if (isNaN(sellingPerCarton) || sellingPerCarton <= 0) {
+          Alert.alert("Invalid Input", "Please enter a valid selling price per carton greater than ₦0.");
+          return false;
+        }
+        if (isNaN(sellingPerUnit) || sellingPerUnit <= 0) {
+          Alert.alert("Invalid Input", "Please enter a valid selling price per unit greater than ₦0.");
+          return false;
+        }
+      }
+    } else if (step === 2) {
+      // Step 2 validations (Dates, Threshold, Supplier)
+      const currentYear = new Date().getFullYear();
+      const { year, month, day } = formData.expiryDate;
+      if (year || month || day) {
+        const numYear = parseInt(year, 10);
+        const numMonth = parseInt(month, 10);
+        const numDay = parseInt(day, 10);
+
+        if (year && (isNaN(numYear) || numYear < currentYear || numYear > currentYear + 50)) {
+          Alert.alert("Invalid Expiry Year", `Please enter a realistic expiry year (${currentYear} or later).`);
+          return false;
+        }
+        if (month && (isNaN(numMonth) || numMonth < 1 || numMonth > 12)) {
+          Alert.alert("Invalid Expiry Month", "Please enter a valid month between 1 and 12.");
+          return false;
+        }
+        if (day && (isNaN(numDay) || numDay < 1 || numDay > 31)) {
+          Alert.alert("Invalid Expiry Day", "Please enter a valid day between 1 and 31.");
+          return false;
+        }
+      }
+      if (formData.lowStockThreshold) {
+        const threshold = parseInt(formData.lowStockThreshold, 10);
+        if (isNaN(threshold) || threshold < 0) {
+          Alert.alert("Invalid Threshold", "Low stock threshold cannot be negative.");
           return false;
         }
       }
@@ -366,7 +467,7 @@ export function useAddProductForm(
           );
           updated = data;
         } else {
-          // No new local image — plain JSON PATCH.
+          // No new local image  plain JSON PATCH.
           if (formData.productImage?.uri?.startsWith("http")) {
             editPayload.image_url = formData.productImage.uri;
           }
@@ -436,6 +537,11 @@ export function useAddProductForm(
           (parseInt(formData.unitsPerCarton) || 1);
 
       const payload: Record<string, any> = {
+        // Linking to the catalog product: the backend keeps only the values the
+        // user changed as the shop's own; the rest follow catalog corrections.
+        ...(catalogProduct
+          ? { product: catalogProduct.id, quantity: unitsInStock, buying_price: buyingPrice }
+          : {}),
         name: formData.productName,
         category: formData.category,
         barcode: formData.barcode || formData.sku || "",
@@ -449,6 +555,14 @@ export function useAddProductForm(
         supplier_phone: formData.supplier.phone || "",
       };
 
+      // A catalog photo stays the catalog's (don't copy its URL onto the item).
+      if (
+        catalogProduct?.image_url &&
+        formData.productImage?.uri === catalogProduct.image_url
+      ) {
+        delete payload.image_url;
+      }
+
       const imageFile = readImage(formData.productImage);
 
       if (imageFile) {
@@ -460,7 +574,7 @@ export function useAddProductForm(
         });
         await apiClient.post(PRODUCTS_USER_INVENTORY_ADD, fd, MULTIPART_CONFIG);
       } else {
-        // No image — plain JSON POST.
+        // No image  plain JSON POST.
         await apiClient.post(PRODUCTS_USER_INVENTORY_ADD, payload);
       }
 
@@ -473,7 +587,16 @@ export function useAddProductForm(
         error?.response?.data ?? error,
       );
       const status = error?.response?.status;
-      const detail = extractApiError(error);
+      const data = error?.response?.data;
+      if (data?.code === "already_in_inventory") {
+        Alert.alert(
+          "Already in your inventory",
+          `You already stock this as "${data.inventory_name}". Restock it from your inventory instead.`,
+        );
+        return;
+      }
+      const detail =
+        typeof data?.error === "string" ? data.error : extractApiError(error);
       Alert.alert("Error", status ? `(${status}) ${detail}` : detail);
     } finally {
       setSaving(false);
@@ -487,6 +610,8 @@ export function useAddProductForm(
     updateFormData,
     resetForm,
     populateFromProduct,
+    populateFromCatalog,
+    catalogProduct,
     validateStep,
     handleSaveProduct,
     setShowSuccessModal,

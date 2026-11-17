@@ -1,6 +1,6 @@
 // Helpers for building multipart/form-data request bodies (used for image
 // uploads). React Native's fetch/axios expects a file to be appended as a
-// plain object of the shape { uri, name, type } — not a Blob — so we normalise
+// plain object of the shape { uri, name, type }  not a Blob  so we normalise
 // picked/cropped images into that shape before appending.
 
 export interface FormImageFile {
@@ -23,8 +23,8 @@ export interface FormImageInput {
  * Normalise an image source into the { uri, name, type } file object that
  * FormData needs for a multipart upload.
  *
- * Returns `undefined` when there is nothing to upload — no uri, or a remote
- * (already-uploaded) http(s) image — so callers can simply skip the field.
+ * Returns `undefined` when there is nothing to upload  no uri, or a remote
+ * (already-uploaded) http(s) image  so callers can simply skip the field.
  */
 export function readImage(
   source?: FormImageInput | null,

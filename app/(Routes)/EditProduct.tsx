@@ -33,6 +33,7 @@ import {
   MediaType,
 } from "react-native-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Skeleton } from "@/components/ui";
 
 const { width, height } = Dimensions.get("window");
 
@@ -335,7 +336,48 @@ const EditProduct: React.FC = () => {
     }
   };
 
+  const validateStep = (step: number): boolean => {
+    if (step === 0) {
+      if (!formData.productName.trim()) {
+        Alert.alert("Missing Name", "Please enter a product name.");
+        return false;
+      }
+      if (!formData.category.trim()) {
+        Alert.alert("Missing Category", "Please select or enter a category.");
+        return false;
+      }
+    } else if (step === 1) {
+      const units = parseInt(formData.numberOfItems);
+      const cost = parseFloat(formData.costPrice);
+      const selling = parseFloat(formData.sellingPrice);
+
+      if (isNaN(units) || units < 0) {
+        Alert.alert("Invalid Units", "Please enter valid units in stock (0 or more).");
+        return false;
+      }
+      if (isNaN(cost) || cost < 0) {
+        Alert.alert("Invalid Cost Price", "Please enter a valid cost price (₦0 or more).");
+        return false;
+      }
+      if (isNaN(selling) || selling <= 0) {
+        Alert.alert("Invalid Selling Price", "Please enter a valid selling price greater than ₦0.");
+        return false;
+      }
+    } else if (step === 2) {
+      if (formData.expiryDate.month && !formData.expiryDate.year) {
+        Alert.alert("Incomplete Expiry Date", "Please enter the expiry year.");
+        return false;
+      }
+      if (formData.expiryDate.year && !formData.expiryDate.month) {
+        Alert.alert("Incomplete Expiry Date", "Please select the expiry month.");
+        return false;
+      }
+    }
+    return true;
+  };
+
   const nextStep = () => {
+    if (!validateStep(currentStep)) return;
     if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
     }
@@ -552,7 +594,13 @@ const EditProduct: React.FC = () => {
 
   // Re-use your existing renderStep1, renderStep2, renderStep3, and renderSummary functions
   const renderStep1 = () => (
-    <ScrollView style={styles.stepContent}>
+    <ScrollView
+      style={styles.stepContent}
+      contentContainerStyle={{ paddingBottom: 160 + insets.bottom, flexGrow: 1 }}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+    >
       <View style={styles.inputGroup}>
         <Text style={styles.label}>
           Product Name <Text style={styles.required}>*</Text>
@@ -688,7 +736,13 @@ const EditProduct: React.FC = () => {
   );
 
   const renderStep2 = () => (
-    <ScrollView style={styles.stepContent}>
+    <ScrollView
+      style={styles.stepContent}
+      contentContainerStyle={{ paddingBottom: 160 + insets.bottom, flexGrow: 1 }}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+    >
       <View style={styles.inputGroup}>
         <Text style={styles.label}>
           Quantity Type: <Text style={styles.required}>*</Text>
@@ -833,7 +887,13 @@ const EditProduct: React.FC = () => {
   );
 
   const renderStep3 = () => (
-    <ScrollView style={styles.stepContent}>
+    <ScrollView
+      style={styles.stepContent}
+      contentContainerStyle={{ paddingBottom: 160 + insets.bottom, flexGrow: 1 }}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+    >
       <View style={styles.inputGroup}>
         <Text style={styles.label}>
           Low stock Threshold <Text style={styles.required}>*</Text>
@@ -997,9 +1057,24 @@ const EditProduct: React.FC = () => {
 
   if (initialLoading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading product data...</Text>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
+            <Ionicons name="arrow-back" size={24} color="#111827" />
+          </TouchableOpacity>
+          <Skeleton width={140} height={20} />
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={{ padding: 16 }}>
+          <Skeleton width="100%" height={150} borderRadius={12} style={{ marginBottom: 20 }} />
+          {[1, 2, 3, 4].map((i) => (
+            <View key={i} style={{ marginBottom: 16 }}>
+              <Skeleton width="30%" height={14} style={{ marginBottom: 8 }} />
+              <Skeleton width="100%" height={46} borderRadius={8} />
+            </View>
+          ))}
+          <Skeleton width="100%" height={50} borderRadius={10} style={{ marginTop: 10 }} />
+        </View>
       </SafeAreaView>
     );
   }
@@ -1021,7 +1096,7 @@ const EditProduct: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
       >
         {/* Header */}

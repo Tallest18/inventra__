@@ -1,4 +1,5 @@
 // components/auth/SubscriptionWatcher.tsx
+import { AnimatedModal } from "@/components/ui/AnimatedModal";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSegments } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -14,33 +15,36 @@ import {
   getAccessToken,
   getSubscription,
   getTransferStatus,
+  initializePaystack,
   initializeTransfer,
   onTokensChanged,
   parseApiError,
   setAccessGated,
   startTrial,
+  verifyPaystack,
 } from "@/src/api";
 import type { Subscription, TransferPayment } from "@/src/api/types";
+import * as WebBrowser from "expo-web-browser";
 import { TrialModal } from "./TrialModal";
 
 /**
  * How long to wait before re-checking, derived from what the backend says is
  * left rather than from any fixed assumption in the app. A five-minute trial
  * needs a tight loop to catch each reminder step; a three-month subscription
- * very much does not. Nothing here encodes how long a trial or plan lasts —
+ * very much does not. Nothing here encodes how long a trial or plan lasts 
  * that is entirely the server's business.
  */
 const pollDelayFor = (
   subscription: Subscription | null,
   hasSession: boolean,
 ): number => {
-  // Signed out we make no network call at all — it is just a storage read — so
+  // Signed out we make no network call at all  it is just a storage read  so
   // keep it tight and pick up a fresh login almost the moment it happens.
   if (!hasSession) return 1_000;
 
   const seconds = subscription?.seconds_remaining;
 
-  if (seconds == null) return 60_000; // unknown — check once a minute
+  if (seconds == null) return 60_000; // unknown  check once a minute
   if (seconds <= 0) return 30_000; // already expired
   if (seconds <= 120) return 5_000; // final couple of minutes
   if (seconds <= 900) return 15_000; // within a quarter hour
@@ -146,7 +150,7 @@ export const SubscriptionWatcher: React.FC = () => {
     // hammering endpoints that can only answer 403.
     setAccessGated(!next.access_active);
 
-    // Registered but never started the trial — a forced choice.
+    // Registered but never started the trial  a forced choice.
     if (!next.trial_started) {
       if (next.trial_offer) setMode("onboarding");
       return;
@@ -352,6 +356,50 @@ export const SubscriptionWatcher: React.FC = () => {
     }
   };
 
+  /** Starts Paystack Online / Card Checkout in an in-app browser session. */
+  const startOnlinePayment = async () => {
+    if (busy) return;
+    const asksForEmail = emailPrompt !== null;
+    const trimmed = email.trim();
+    if (asksForEmail && !EMAIL_PATTERN.test(trimmed)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    setPayMessage(null);
+    try {
+      const res = await initializePaystack(
+        asksForEmail ? { email: trimmed } : {},
+      );
+      setEmailPrompt(null);
+      setEmail("");
+      await WebBrowser.openBrowserAsync(res.authorization_url);
+      goTo("checking");
+      try {
+        const verified = await verifyPaystack(res.reference);
+        markPaid(verified.subscription);
+      } catch (verifyErr: any) {
+        goTo(null);
+        setError("Payment was not completed or cancelled.");
+      }
+    } catch (err: any) {
+      const info = parseApiError(err, "Failed to connect to Paystack.");
+      if (info.code === "email_required" || info.fields.email) {
+        if (emailPrompt === null) {
+          setEmailPrompt(info.fields.email ?? info.message);
+        } else {
+          setError(info.fields.email ?? info.message);
+        }
+      } else {
+        setError(info.message);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleMadePayment = async () => {
     const reference = transfer?.payment.reference;
     if (!reference) return;
@@ -381,7 +429,7 @@ export const SubscriptionWatcher: React.FC = () => {
     setPayMessage(
       failure ??
         (latest?.status === "pending"
-          ? "We haven't received your transfer yet. It can take a few minutes to arrive — we'll keep checking."
+          ? "We haven't received your transfer yet. It can take a few minutes to arrive  we'll keep checking."
           : null),
     );
     goTo("renew");
@@ -488,6 +536,7 @@ export const SubscriptionWatcher: React.FC = () => {
         email={email}
         onEmailChange={setEmail}
         onPay={startPayment}
+        onPayOnline={startOnlinePayment}
       />
     );
   } else if (mode === "reminder") {
@@ -512,14 +561,12 @@ export const SubscriptionWatcher: React.FC = () => {
   // pages swaps its contents instead of stacking modals (which iOS refuses to
   // present while another is still dismissing).
   return (
-    <Modal
+    <AnimatedModal backdrop={false}
       visible
-      transparent
-      animationType="fade"
       statusBarTranslucent
       onRequestClose={() => onBackButton?.()}
     >
       {content}
-    </Modal>
+    </AnimatedModal>
   );
 };

@@ -12,6 +12,8 @@ const MainLayout = () => {
         tabBarActiveTintColor: "#1155CC",
         tabBarInactiveTintColor: "#9CA3AF",
         headerShown: false,
+        // Switching tabs slides the new page in, matching page navigation.
+        animation: "shift",
         tabBarHideOnKeyboard: true,
         tabBarShowLabel: true,
         tabBarStyle: {

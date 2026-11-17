@@ -14,18 +14,21 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ onAddProduct }) => {
   const router = useRouter();
 
   return (
-    <View style={styles.row}>
+    <View style={styles.actionsCard}>
       <TouchableOpacity
         style={[styles.actionBox, { backgroundColor: "#061E47" }]}
         onPress={onAddProduct}
         activeOpacity={0.8}
       >
-        <Text style={{ color: "#fff", fontFamily: "DMSans_400Regular" }}>
-          New Product{" "}
+        <Text
+          style={{ color: "#fff", fontFamily: "DMSans_400Regular" }}
+          numberOfLines={1}
+        >
+          New Product
         </Text>
         <Ionicons
           name="add-circle-outline"
-          size={moderateScale(30)}
+          size={moderateScale(22)}
           color="#fff"
         />
       </TouchableOpacity>
@@ -38,11 +41,14 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ onAddProduct }) => {
         onPress={() => router.push("/(Main)/Sell")}
         activeOpacity={0.8}
       >
-        <Text style={{ color: "#fff", fontFamily: "DMSans_400Regular" }}>
-          Quick Sell{" "}
+        <Text
+          style={{ color: "#fff", fontFamily: "DMSans_400Regular" }}
+          numberOfLines={1}
+        >
+          Quick Sell
         </Text>
 
-        <AntDesign name="shopping-cart" size={30} color="white" />
+        <AntDesign name="shopping-cart" size={moderateScale(22)} color="white" />
       </TouchableOpacity>
     </View>
   );

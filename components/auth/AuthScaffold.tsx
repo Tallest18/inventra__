@@ -25,7 +25,7 @@ interface AuthScaffoldProps {
   avatarUri?: string | null;
   title: string;
   subtitle?: React.ReactNode;
-  /** Centers the header text and hides the chip — used by the Hello screen. */
+  /** Centers the header text and hides the chip  used by the Hello screen. */
   centered?: boolean;
   showBack?: boolean;
   onBack?: () => void;

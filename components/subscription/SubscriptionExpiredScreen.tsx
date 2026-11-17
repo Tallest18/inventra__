@@ -34,6 +34,7 @@ interface Props {
   email: string;
   onEmailChange: (value: string) => void;
   onPay: () => void;
+  onPayOnline?: () => void;
 }
 
 /** The paywall once access has lapsed. There is no way past it but paying. */
@@ -45,6 +46,7 @@ export const SubscriptionExpiredScreen: React.FC<Props> = ({
   email,
   onEmailChange,
   onPay,
+  onPayOnline,
 }) => {
   const insets = useSafeAreaInsets();
   const notice = subscription.expired_notice ?? {};
@@ -58,7 +60,8 @@ export const SubscriptionExpiredScreen: React.FC<Props> = ({
     notice.renewal_amount_display ??
     formatCurrency(notice.renewal_amount_naira ?? subscription.amount_naira, 0);
   const per =
-    notice.interval_display ?? `/ ${noun.charAt(0).toUpperCase()}${noun.slice(1)}`;
+    notice.interval_display ??
+    `/ ${noun.charAt(0).toUpperCase()}${noun.slice(1)}`;
 
   return (
     <KeyboardAvoidingView
@@ -118,11 +121,21 @@ export const SubscriptionExpiredScreen: React.FC<Props> = ({
         <ErrorText message={error} />
 
         <PrimaryButton
-          label="Make Payment"
+          label="Pay via Bank Transfer"
           onPress={onPay}
           loading={loading}
           style={styles.cta}
         />
+        {onPayOnline && (
+          <TouchableOpacity
+            style={styles.onlinePayBtn}
+            onPress={onPayOnline}
+            disabled={loading}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.onlinePayText}>Pay with Card / Online</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           style={styles.support}
           onPress={() => contactSupport()}
@@ -155,7 +168,7 @@ const styles = StyleSheet.create({
   badge: {
     position: "absolute",
     top: -scale(2),
-    right: -scale(10),
+    right: -scale(2),
     width: scale(26),
     height: scale(26),
     borderRadius: scale(13),
@@ -223,6 +236,22 @@ const styles = StyleSheet.create({
     color: PAYWALL_COLORS.textMuted,
   },
   cta: { alignSelf: "stretch", marginTop: verticalScale(28) },
+  onlinePayBtn: {
+    alignSelf: "stretch",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1.5,
+    borderColor: PAYWALL_COLORS.brand,
+    borderRadius: moderateScale(14),
+    paddingVertical: verticalScale(14),
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: verticalScale(12),
+  },
+  onlinePayText: {
+    color: PAYWALL_COLORS.brand,
+    fontSize: moderateScale(15),
+    fontFamily: AUTH_FONTS.semibold,
+  },
   support: { paddingVertical: verticalScale(16) },
   supportText: {
     fontSize: moderateScale(15.5),

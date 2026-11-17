@@ -26,8 +26,8 @@ const CODE_LENGTH = 6;
 const RESEND_SECONDS = 60;
 
 /**
- * `register` — new account or an account that never finished onboarding.
- * `reset`    — forgot-PIN, so the verified session is carried to reset-pin.
+ * `register`  new account or an account that never finished onboarding.
+ * `reset`     forgot-PIN, so the verified session is carried to reset-pin.
  */
 type VerificationMode = "register" | "reset";
 
@@ -66,7 +66,7 @@ const VerificationScreen: React.FC = () => {
     const clean = value.replace(/\D/g, "");
     if (error) setError(null);
 
-    // Pasting the whole code lands in one box — spread it across the row.
+    // Pasting the whole code lands in one box  spread it across the row.
     if (clean.length > 1) {
       const next = Array(CODE_LENGTH).fill("");
       clean
@@ -143,7 +143,7 @@ const VerificationScreen: React.FC = () => {
 
     try {
       const result = await resendOtp(verificationId);
-      // The old id is burned by the resend — everything from here uses the new one.
+      // The old id is burned by the resend  everything from here uses the new one.
       setVerificationId(result.verification_id);
       setDigits(Array(CODE_LENGTH).fill(""));
       setSecondsLeft(RESEND_SECONDS);

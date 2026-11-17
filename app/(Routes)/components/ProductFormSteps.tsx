@@ -1,3 +1,5 @@
+import { AnimatedModal, MODAL_CONTENT_RESET } from "@/components/ui/AnimatedModal";
+import { OptionSheet } from "@/components/ui/OptionSheet";
 import { FormData } from "@/hooks/useAddProductForm";
 import { formatCurrency, formatNumber } from "@/utils/formatters";
 import { Ionicons } from "@expo/vector-icons";
@@ -6,7 +8,6 @@ import {
   ActivityIndicator,
   Dimensions,
   Image,
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -131,10 +132,11 @@ export const ProductInfoStep: React.FC<ProductInfoStepProps> = ({
       style={styles.stepContent}
       contentContainerStyle={[
         styles.stepContentContainer,
-        { paddingBottom: 36 + insets.bottom },
+        { paddingBottom: 140 + insets.bottom },
       ]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
     >
       {/* Card 1: Product Name, SKU, and Category */}
       <View style={styles.card}>
@@ -177,7 +179,7 @@ export const ProductInfoStep: React.FC<ProductInfoStepProps> = ({
             onPress={() =>
               !categoriesLoading &&
               availableCategories.length > 0 &&
-              setShowCategoryDropdown(!showCategoryDropdown)
+              setShowCategoryDropdown(true)
             }
           >
             <Text
@@ -191,39 +193,19 @@ export const ProductInfoStep: React.FC<ProductInfoStepProps> = ({
                 ? "Loading categories..."
                 : formData.category || "Category"}
             </Text>
-            <Ionicons
-              name={showCategoryDropdown ? "chevron-up" : "chevron-down"}
-              size={18}
-              color="#718096"
-            />
+            <Ionicons name="chevron-down" size={18} color="#718096" />
           </TouchableOpacity>
 
-          {showCategoryDropdown && (
-            <View style={styles.dropdownMenu}>
-              {availableCategories.map((category) => (
-                <TouchableOpacity
-                  key={category.id}
-                  style={styles.dropdownItem}
-                  onPress={() => {
-                    updateFormData("category", category.name);
-                    setShowCategoryDropdown(false);
-                  }}
-                >
-                  <Text style={styles.dropdownItemText}>{category.name}</Text>
-                  {formData.category === category.name && (
-                    <Ionicons name="checkmark" size={18} color="#1155CC" />
-                  )}
-                </TouchableOpacity>
-              ))}
-              {!availableCategories.length && (
-                <View style={styles.dropdownItem}>
-                  <Text style={styles.dropdownItemText}>
-                    No categories available
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
+          {/* Options slide up in a bottom sheet (mobile pattern), not inline. */}
+          <OptionSheet
+            visible={showCategoryDropdown}
+            title="Select Category"
+            options={availableCategories.map((c) => ({ label: c.name, value: c.name }))}
+            selectedValue={formData.category}
+            onSelect={(value) => updateFormData("category", value)}
+            onClose={() => setShowCategoryDropdown(false)}
+            emptyText="No categories available"
+          />
         </View>
       </View>
 
@@ -276,7 +258,7 @@ export const ProductInfoStep: React.FC<ProductInfoStepProps> = ({
                 Click to take a picture, or select{"\n"}from gallery
               </Text>
 
-              {/* Take Picture — single outlined button */}
+              {/* Take Picture  single outlined button */}
               <TouchableOpacity
                 style={styles.takePictureBtn}
                 onPress={() => onPickImage(true)}
@@ -285,7 +267,7 @@ export const ProductInfoStep: React.FC<ProductInfoStepProps> = ({
                 <Text style={styles.takePictureBtnText}>Take Picture</Text>
               </TouchableOpacity>
 
-              {/* Select from gallery — text link */}
+              {/* Select from gallery  text link */}
               <TouchableOpacity
                 onPress={() => onPickImage(false)}
                 disabled={imageUploading}
@@ -343,9 +325,11 @@ export const PricingStep: React.FC<PricingStepProps> = ({
       style={styles.stepContent}
       contentContainerStyle={[
         styles.stepContentContainer,
-        { paddingBottom: 36 + insets.bottom },
+        { paddingBottom: 140 + insets.bottom },
       ]}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
     >
       <View style={styles.card}>
         <View style={styles.fieldGroup}>
@@ -457,9 +441,11 @@ export const StockExtrasStep: React.FC<StockExtrasStepProps> = ({
       style={styles.stepContent}
       contentContainerStyle={[
         styles.stepContentContainer,
-        { paddingBottom: 36 + insets.bottom },
+        { paddingBottom: 140 + insets.bottom },
       ]}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
     >
       {/* Card 1: Stock settings */}
       <View style={styles.card}>
@@ -467,7 +453,7 @@ export const StockExtrasStep: React.FC<StockExtrasStepProps> = ({
           <FieldLabel label="Low stock Threshold" required />
           <TouchableOpacity
             style={styles.dropdown}
-            onPress={() => setShowThresholdDropdown(!showThresholdDropdown)}
+            onPress={() => setShowThresholdDropdown(true)}
           >
             <Text
               style={
@@ -478,32 +464,17 @@ export const StockExtrasStep: React.FC<StockExtrasStepProps> = ({
             >
               {formData.lowStockThreshold || "Select Number"}
             </Text>
-            <Ionicons
-              name={showThresholdDropdown ? "chevron-up" : "chevron-down"}
-              size={18}
-              color="#718096"
-            />
+            <Ionicons name="chevron-down" size={18} color="#718096" />
           </TouchableOpacity>
 
-          {showThresholdDropdown && (
-            <View style={styles.dropdownMenu}>
-              {LOW_STOCK_OPTIONS.map((option) => (
-                <TouchableOpacity
-                  key={option}
-                  style={styles.dropdownItem}
-                  onPress={() => {
-                    updateFormData("lowStockThreshold", option);
-                    setShowThresholdDropdown(false);
-                  }}
-                >
-                  <Text style={styles.dropdownItemText}>{option}</Text>
-                  {formData.lowStockThreshold === option && (
-                    <Ionicons name="checkmark" size={18} color="#1155CC" />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+          <OptionSheet
+            visible={showThresholdDropdown}
+            title="Low Stock Threshold"
+            options={LOW_STOCK_OPTIONS.map((o) => ({ label: `${o} units`, value: o }))}
+            selectedValue={formData.lowStockThreshold}
+            onSelect={(value) => updateFormData("lowStockThreshold", value)}
+            onClose={() => setShowThresholdDropdown(false)}
+          />
         </View>
 
         <View style={[styles.fieldGroup, { marginBottom: 0 }]}>
@@ -540,7 +511,7 @@ export const StockExtrasStep: React.FC<StockExtrasStepProps> = ({
         </View>
       </View>
 
-      {/* Card 2: Supplier info — separate card as per UI */}
+      {/* Card 2: Supplier info  separate card as per UI */}
       <View style={styles.card}>
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Supplier</Text>
@@ -592,7 +563,7 @@ export const ProductSummary: React.FC<ProductSummaryProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   // Bumped once the sheet finishes sliding up so the ScrollView remounts and
-  // measures against the settled sheet height — otherwise it's measured
+  // measures against the settled sheet height  otherwise it's measured
   // mid-animation, caches "content fits", and won't scroll to the bottom.
   const [layoutKey, setLayoutKey] = useState(0);
   const totalUnits =
@@ -681,15 +652,13 @@ export const ProductSummary: React.FC<ProductSummaryProps> = ({
   ];
 
   return (
-    <Modal
+    <AnimatedModal
       visible={visible}
-      transparent
-      animationType="slide"
       onRequestClose={onClose}
       onShow={() => setLayoutKey((k) => k + 1)}
       statusBarTranslucent
     >
-      <View style={styles.summaryOverlay}>
+      <View style={[styles.summaryOverlay, MODAL_CONTENT_RESET]}>
         <View style={[styles.summarySheet, { height: "94%" }]}>
           {/* Grabber handle */}
           <View style={styles.summaryGrabber} />
@@ -738,7 +707,7 @@ export const ProductSummary: React.FC<ProductSummaryProps> = ({
           </ScrollView>
         </View>
       </View>
-    </Modal>
+    </AnimatedModal>
   );
 };
 
@@ -925,7 +894,7 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_400Regular",
   },
 
-  // Image upload box — dashed border
+  // Image upload box  dashed border
   imageUploadBox: {
     borderWidth: 1.5,
     borderColor: "#CBD5E0",
@@ -946,7 +915,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontFamily: "DMSans_400Regular",
   },
-  // "Take Picture" — single outlined button, centered
+  // "Take Picture"  single outlined button, centered
   takePictureBtn: {
     alignSelf: "center",
     backgroundColor: "#FFF",
@@ -963,7 +932,7 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_500Medium",
     textAlign: "center",
   },
-  // "Select from gallery" — underlined text link
+  // "Select from gallery"  underlined text link
   galleryLinkText: {
     fontSize: isSmall ? 12 : 14,
     color: "#1155CC",

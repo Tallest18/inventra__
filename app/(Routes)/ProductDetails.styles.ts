@@ -5,12 +5,35 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFF",
   },
+  // Bottom sheet: dimmed backdrop, sheet anchored to the bottom.
+  backdrop: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+  },
+  sheet: {
+    maxHeight: "94%",
+    minHeight: "40%",
+    backgroundColor: "#FFF",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    overflow: "hidden",
+  },
+  handle: {
+    alignSelf: "center",
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: "#D9D9D9",
+    marginTop: 12,
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 20,
+    paddingBottom: 8,
     backgroundColor: "#FFF",
   },
   headerTitle: {
@@ -22,7 +45,8 @@ export const styles = StyleSheet.create({
     padding: 4,
   },
   loadingContainer: {
-    flex: 1,
+    // Sized by padding: the sheet's height follows its content.
+    paddingVertical: 80,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -33,7 +57,8 @@ export const styles = StyleSheet.create({
     fontFamily: "DMSans_400Regular",
   },
   errorContainer: {
-    flex: 1,
+    // Sized by padding: the sheet's height follows its content.
+    paddingVertical: 80,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -43,7 +68,7 @@ export const styles = StyleSheet.create({
     fontFamily: "DMSans_400Regular",
   },
   content: {
-    flex: 1,
+    flexGrow: 0,
   },
   imageContainer: {
     alignItems: "center",

@@ -1,15 +1,19 @@
 import AllProducts from "@/components/sell/allProducts";
 import SalesHistory, { Sale } from "@/components/sell/saleHistory";
 import { useToast } from "@/components/ui/useToast";
-import { useSales } from "@/hooks/useSales";
-import { ApiUserInventoryItem, listUserInventory } from "@/src/api";
+import { useInfiniteList } from "@/hooks/useInfiniteList";
+import {
+  ApiUserInventoryItem,
+  listSalesPaginated,
+  listUserInventory,
+} from "@/src/api";
 import type { ApiSale } from "@/src/api/sales";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import Feather from "@expo/vector-icons/Feather";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import useCartStore from "@/stores/cartStore";
+import { SellSkeleton } from "@/components/skeletons";
 import {
   ActivityIndicator,
   SafeAreaView,
@@ -102,15 +106,23 @@ const Sell: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState<"recent" | "name" | "name_desc">("recent");
-  const {
-    data: salesData,
-    isLoading: salesLoading,
-    isFetching: salesSearching,
-  } = useSales({
-    search: searchQuery.trim() || undefined,
-    page: 0,
-    page_size: 25,
+  // Debounced so each keystroke doesn't start a new paginated query.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 350);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Sales history, newest first, 20 at a time as the user scrolls.
+  // (The sales API has no text search, so history isn't filtered by it.)
+  const sales = useInfiniteList<ApiSale>({
+    queryKey: ["sales", "infinite"],
+    fetchPage: (page, page_size) => listSalesPaginated({ page, page_size }),
+    getId: (s) => s.id,
+    enabled: activeTab === "history",
   });
+  const salesLoading = sales.isLoading;
+  const salesSearching = sales.isSwitching;
   const { cart, setCart } = useCartStore();
   const { showToast, toastElement } = useToast();
 
@@ -118,51 +130,26 @@ const Sell: React.FC = () => {
     if (params.tab === "history") setActiveTab("history");
   }, [params.tab]);
 
-  const {
-    data: inventoryData,
-    isLoading: productsLoading,
-    isFetching: productsSearching,
-  } = useQuery({
-    queryKey: ["user-inventory", searchQuery.trim() || undefined, undefined, 0, 50, sortOrder],
-    queryFn: () =>
+  // Sellable products: search and sort run on the server, paged as you scroll.
+  const inventory = useInfiniteList<ApiUserInventoryItem>({
+    queryKey: ["user-inventory", "infinite", debouncedSearch, undefined, sortOrder],
+    fetchPage: (page, page_size) =>
       listUserInventory({
-        search: searchQuery.trim() || undefined,
-        page: 0,
-        page_size: 50,
+        search: debouncedSearch || undefined,
         sort: sortOrder,
+        page,
+        page_size,
       }),
-    // Keep prior results visible while a new search fetches, so the search bar
-    // and tabs stay put instead of the whole page flashing a loader.
-    placeholderData: keepPreviousData,
+    getId: (p) => p.id,
   });
+  const productsLoading = inventory.isLoading;
+  const productsSearching = inventory.isSwitching;
 
-  const products = useMemo<Product[]>(() => {
-    const results = (inventoryData?.results ?? []).map(mapApiProduct);
-    // Mirror the API ordering client-side so the list stays correct even when
-    // results are served from cache or an unsorted source.
-    if (sortOrder === "name") {
-      return results.sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
-      );
-    } else if (sortOrder === "name_desc") {
-      return results.sort((a, b) =>
-        b.name.localeCompare(a.name, undefined, { sensitivity: "base" }),
-      );
-    }
-    return results.sort(
-      (a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime(),
-    );
-  }, [inventoryData, sortOrder]);
-
-  const filteredProducts = useMemo(() => {
-    const term = searchQuery.toLowerCase().trim();
-    if (!term) return products;
-    return products.filter((p: Product) => {
-      const name = p.name?.toLowerCase() || "";
-      const category = p.category?.toLowerCase() || "";
-      return name.includes(term) || category.includes(term);
-    });
-  }, [searchQuery, products]);
+  const products = useMemo<Product[]>(
+    () => inventory.items.map(mapApiProduct),
+    [inventory.items],
+  );
+  const filteredProducts = products;
 
   // ─── Cart handlers ───────────────────────────────────────────────────────
 
@@ -212,7 +199,11 @@ const Sell: React.FC = () => {
   const totalCartItems = cart.reduce((t, item) => t + item.quantity, 0);
 
   const viewCart = () => {
-    // Re-check live stock before leaving this screen — the inventory may have
+    if (cart.length === 0) {
+      showToast("Your cart is empty. Tap the cart button on a product to add it.", "warning");
+      return;
+    }
+    // Re-check live stock before leaving this screen  the inventory may have
     // been refetched (or sold down elsewhere) after items were added, so guard
     // the navigation rather than letting a stale cart reach checkout.
     for (const item of cart) {
@@ -220,7 +211,7 @@ const Sell: React.FC = () => {
       const stock = product?.unitsInStock ?? item.product?.unitsInStock ?? 0;
       const name = product?.name ?? item.product?.name ?? "This product";
       if (stock <= 0) {
-        showToast(`${name} is out of stock — remove it to continue`, "warning");
+        showToast(`${name} is out of stock  remove it to continue`, "warning");
         return;
       }
       if (item.quantity > stock) {
@@ -243,10 +234,10 @@ const Sell: React.FC = () => {
   if (productsLoading || salesLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#1155CC" />
-          <Text style={styles.loadingText}>Loading...</Text>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Sell</Text>
         </View>
+        <SellSkeleton />
       </SafeAreaView>
     );
   }
@@ -351,12 +342,10 @@ const Sell: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Tab content — a spinner replaces just this list area while (re)loading,
+      {/* Tab content  a spinner replaces just this list area while (re)loading,
           so the search bar, filters and tabs above stay put. */}
       {(activeTab === "history" ? salesSearching : productsSearching) ? (
-        <View style={styles.listLoading}>
-          <ActivityIndicator size="large" color="#1155CC" />
-        </View>
+        <SellSkeleton />
       ) : activeTab === "all" ? (
         <AllProducts
           products={products}
@@ -365,13 +354,21 @@ const Sell: React.FC = () => {
           onAddToCart={handleAddToCart}
           onIncrement={handleIncrement}
           onDecrement={handleDecrement}
+          onEndReached={inventory.loadMore}
+          loadingMore={inventory.isFetchingMore}
         />
       ) : (
-        <SalesHistory sales={(salesData?.results ?? []).map(mapApiSale)} />
+        <SalesHistory
+          sales={sales.items.map(mapApiSale)}
+          onEndReached={sales.loadMore}
+          loadingMore={sales.isFetchingMore}
+        />
       )}
 
       {/* View Cart FAB */}
-      {totalCartItems > 0 && activeTab === "all" && (
+      {/* Always shown on All Products (as in the design); an empty cart just
+          says so instead of opening. */}
+      {activeTab === "all" && (
         <View style={styles.viewCartContainer}>
           <TouchableOpacity
             style={styles.viewCartButton}
@@ -379,9 +376,7 @@ const Sell: React.FC = () => {
             activeOpacity={0.8}
           >
             <Feather name="shopping-cart" size={20} color="#fff" />
-            <Text style={styles.viewCartButtonText}>
-              Click to view cart ({totalCartItems})
-            </Text>
+            <Text style={styles.viewCartButtonText}>Click to view cart</Text>
           </TouchableOpacity>
         </View>
       )}

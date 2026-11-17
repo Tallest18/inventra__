@@ -1,245 +1,192 @@
-import { listNotifications } from "@/src/api";
+// app/(Routes)/HelpCenterScreen.tsx: "Help & Support" (Figma).
+// FAQs and contact details come from the admin panel (Django admin → App content).
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Image,
+  LayoutAnimation,
+  Linking,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
+  UIManager,
   View,
 } from "react-native";
 
-interface HelpTopic {
-  id: string;
-  title: string;
-  icon: any;
-}
+import { BLUE, PAGE_BG, ScreenHeader, SectionLabel } from "@/components/settings/SettingsUI";
+import { Skeleton } from "@/components/ui";
+import { getHelpContent, whatsappLink } from "@/src/api";
 
-const iconByType: Record<string, any> = {
-  low_stock: require("../../assets/images/noImg.jpg"),
-  out_of_stock: require("../../assets/images/noImg.jpg"),
-  low_selling: require("../../assets/images/noImg.jpg"),
-  high_selling: require("../../assets/images/noImg.jpg"),
-  sale: require("../../assets/images/noImg.jpg"),
-  product_added: require("../../assets/images/noImg.jpg"),
-  expiry: require("../../assets/images/noImg.jpg"),
-  general: require("../../assets/images/noImg.jpg"),
-};
+if (Platform.OS === "android") UIManager.setLayoutAnimationEnabledExperimental?.(true);
 
 const HelpCenterScreen = () => {
-  const [topics, setTopics] = useState<HelpTopic[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchText, setSearchText] = useState("");
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["content-help"],
+    queryFn: getHelpContent,
+  });
+  const [open, setOpen] = useState<number | null>(null);
 
-  useEffect(() => {
-    const loadTopics = async () => {
-      try {
-        const notificationsResponse = await listNotifications({
-          page: 0,
-          page_size: 20,
-        });
-        const mappedTopics = notificationsResponse.results
-          .map((item) => ({
-            id: String(item.id),
-            title: item.title || item.description || item.message || "Untitled",
-            icon: iconByType[item.type || "general"] || iconByType.general,
-          }))
-          .filter(
-            (item, index, self) =>
-              index === self.findIndex((x) => x.title === item.title),
-          );
-        setTopics(mappedTopics);
-      } catch (error) {
-        console.error("Error loading help topics:", error);
-        setTopics([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadTopics();
-  }, []);
-
-  const filteredTopics = useMemo(() => {
-    if (!searchText.trim()) return topics;
-    return topics.filter((topic) =>
-      topic.title.toLowerCase().includes(searchText.trim().toLowerCase()),
-    );
-  }, [searchText, topics]);
+  const toggle = (id: number) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setOpen((cur) => (cur === id ? null : id));
+  };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={24} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Help Center</Text>
-          <View /> {/* Spacer */}
-        </View>
-
-        {/* Search Bar */}
-        <View style={styles.searchBarContainer}>
-          <Ionicons
-            name="search"
-            size={20}
-            color="#777"
-            style={styles.searchIcon}
-          />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search Topic"
-            placeholderTextColor="#777"
-            value={searchText}
-            onChangeText={setSearchText}
-          />
-        </View>
-
-        {/* Help Topics */}
-        <View style={styles.topicsGrid}>
-          {loading && (
-            <View style={styles.loadingWrap}>
-              <ActivityIndicator size="small" color="#24A19C" />
-            </View>
-          )}
-          {!loading &&
-            filteredTopics.map((topic) => (
-              <TouchableOpacity
-                key={topic.id}
-                style={styles.topicCard}
-                onPress={() => console.log(`Open ${topic.title}`)}
-              >
-                <View style={styles.topicIconContainer}>
-                  <Image
-                    source={topic.icon}
-                    style={styles.topicIcon}
-                    resizeMode="contain"
-                  />
+    <SafeAreaView style={styles.container}>
+      <ScreenHeader title="Help & Support" subtitle="Get help with inventra" />
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+        {isLoading ? (
+          <View style={{ gap: 12 }}>
+            <Skeleton width="90%" height={16} style={{ marginBottom: 12 }} />
+            <Skeleton width="40%" height={14} style={{ marginBottom: 8 }} />
+            <View style={styles.faqCard}>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <View
+                  key={i}
+                  style={{
+                    padding: 16,
+                    borderBottomWidth: 1,
+                    borderBottomColor: "#F3F4F6",
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Skeleton width="75%" height={16} />
+                  <Skeleton width={18} height={18} borderRadius={9} />
                 </View>
-                <Text style={styles.topicTitle}>{topic.title}</Text>
-              </TouchableOpacity>
-            ))}
-          {!loading && filteredTopics.length === 0 && (
-            <Text style={styles.emptyText}>No topics available from API</Text>
-          )}
-        </View>
+              ))}
+            </View>
+          </View>
+        ) : isError || !data ? (
+          <TouchableOpacity onPress={() => refetch()} style={styles.retry}>
+            <Text style={styles.retryText}>Couldn't load help. Tap to try again.</Text>
+          </TouchableOpacity>
+        ) : (
+          <>
+            <Text style={styles.intro}>{data.intro}</Text>
 
-        {/* More Topics Button */}
-        <TouchableOpacity
-          style={styles.moreTopicsButton}
-          onPress={() => console.log("More Topics")}
-        >
-          <Text style={styles.moreTopicsButtonText}>More Topics</Text>
-        </TouchableOpacity>
+            <SectionLabel>FREQUENTLY ASKED QUESTIONS</SectionLabel>
+            <View style={styles.faqCard}>
+              {data.faqs.map((faq, i) => {
+                const expanded = open === faq.id;
+                return (
+                  <View key={faq.id} style={i > 0 && styles.faqDivider}>
+                    <TouchableOpacity
+                      style={styles.faqQuestionRow}
+                      onPress={() => toggle(faq.id)}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded }}
+                    >
+                      <Text style={styles.faqQuestion}>{faq.question}</Text>
+                      <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={18} color="#4B5563" />
+                    </TouchableOpacity>
+                    {expanded && (
+                      <View style={styles.faqAnswerBox}>
+                        <Text style={styles.faqAnswer}>{faq.answer}</Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+
+            <SectionLabel>CONTACT SUPPORT</SectionLabel>
+            <View style={styles.contactCard}>
+              <Text style={styles.contactTitle}>{data.help_title}</Text>
+              <Text style={styles.contactText}>{data.help_text}</Text>
+
+              <View style={styles.channel}>
+                <View style={styles.channelHead}>
+                  <View style={[styles.channelIcon, { backgroundColor: "#DCFCE7" }]}>
+                    <Ionicons name="chatbubble-outline" size={20} color="#15803D" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.channelTitle}>Chat with us on WhatsApp</Text>
+                    <Text style={styles.channelSub}>Get help from our support team.</Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.whatsappBtn}
+                  onPress={() => Linking.openURL(whatsappLink(data.contact))}
+                >
+                  <Text style={styles.whatsappText}>Chat on WhatsApp</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.channel}>
+                <View style={styles.channelHead}>
+                  <View style={[styles.channelIcon, { backgroundColor: "#E7EEFA" }]}>
+                    <Ionicons name="mail-outline" size={20} color={BLUE} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.channelTitle}>Send us an email</Text>
+                    <Text style={styles.channelSub}>Send us a message and we'll get back to you.</Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.emailBtn}
+                  onPress={() =>
+                    Linking.openURL(`mailto:${data.contact.email}?subject=${encodeURIComponent("Inventra support")}`)
+                  }
+                >
+                  <Text style={styles.emailText}>Email Support</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <Text style={styles.footer}>Inventra</Text>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#F9F9F9",
-  },
-  container: {
-    flex: 1,
-    padding: 20,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  headerTitle: {
-    fontSize: 20,
-    color: "#333",
-    paddingTop: 30,
-  },
-  searchBarContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "white",
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    marginBottom: 20,
+  container: { flex: 1, backgroundColor: PAGE_BG },
+  scroll: { flex: 1, minHeight: 0 },
+  content: { paddingHorizontal: 16, paddingBottom: 40 },
+  intro: { fontSize: 15.5, lineHeight: 23, color: "#4B5563", fontFamily: "DMSans_400Regular", marginTop: 4 },
+  faqCard: { backgroundColor: "#FFFFFF", borderRadius: 18, overflow: "hidden", borderWidth: 1, borderColor: "#E4E7EC" },
+  faqDivider: { borderTopWidth: 1, borderTopColor: "#E4E7EC" },
+  faqQuestionRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 20, paddingVertical: 20 },
+  faqQuestion: { flex: 1, fontSize: 16, lineHeight: 22, color: "#1C1C1C", fontFamily: "DMSans_500Medium" },
+  faqAnswerBox: { backgroundColor: "#FAFAFA", paddingHorizontal: 20, paddingBottom: 18, paddingTop: 2 },
+  faqAnswer: { fontSize: 15, lineHeight: 23, color: "#6B7280", fontFamily: "DMSans_400Regular" },
+  contactCard: {
+    backgroundColor: "#E3E8F0",
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#E0E0E0",
+    borderColor: "#CFD6E0",
+    padding: 20,
+    gap: 14,
   },
-  searchIcon: {
-    marginRight: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: "#333",
-    paddingVertical: 12,
-  },
-  topicsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  loadingWrap: {
-    width: "100%",
-    paddingVertical: 20,
-    alignItems: "center",
-  },
-  emptyText: {
-    width: "100%",
-    textAlign: "center",
-    color: "#777",
-    paddingVertical: 20,
-  },
-  topicCard: {
-    width: "48%", // Roughly two cards per row with some spacing
-    backgroundColor: "white",
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
+  contactTitle: { fontSize: 18, color: "#1C1C1C", fontFamily: "DMSans_700Bold" },
+  contactText: { fontSize: 15, lineHeight: 22, color: "#6B7280", fontFamily: "DMSans_400Regular", marginBottom: 6 },
+  channel: { backgroundColor: "#F7F8FA", borderRadius: 16, padding: 16, gap: 14 },
+  channelHead: { flexDirection: "row", alignItems: "center", gap: 12 },
+  channelIcon: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  channelTitle: { fontSize: 16, color: "#1C1C1C", fontFamily: "DMSans_600SemiBold" },
+  channelSub: { fontSize: 13, color: "#6B7280", fontFamily: "DMSans_400Regular", marginTop: 2 },
+  whatsappBtn: { backgroundColor: "#00C853", borderRadius: 12, height: 48, alignItems: "center", justifyContent: "center" },
+  whatsappText: { color: "#FFFFFF", fontSize: 16, fontFamily: "DMSans_500Medium" },
+  emailBtn: {
+    borderRadius: 12,
+    height: 48,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1.5,
+    borderColor: BLUE,
   },
-  topicIconContainer: {
-    backgroundColor: "#F0F0F0",
-    borderRadius: 30,
-    width: 60,
-    height: 60,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  topicIcon: {
-    width: 40,
-    height: 40,
-  },
-  topicTitle: {
-    fontSize: 14,
-    color: "#333",
-    textAlign: "center",
-  },
-  moreTopicsButton: {
-    backgroundColor: "#24A19C",
-    paddingVertical: 15,
-    borderRadius: 10,
-    alignItems: "center",
-    marginTop: 20,
-  },
-  moreTopicsButtonText: {
-    color: "white",
-    fontSize: 16,
-  },
+  emailText: { color: BLUE, fontSize: 16, fontFamily: "DMSans_500Medium" },
+  footer: { textAlign: "center", marginTop: 22, color: "#6B7280", fontFamily: "DMSans_500Medium" },
+  retry: { marginTop: 40, alignItems: "center" },
+  retryText: { color: BLUE, fontFamily: "DMSans_500Medium" },
 });
 
 export default HelpCenterScreen;

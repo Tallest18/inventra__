@@ -1,6 +1,6 @@
 // src/api/endpoints.ts
 
-// AUTH — paths are relative to the client's `/api` baseURL.
+// AUTH  paths are relative to the client's `/api` baseURL.
 export const AUTH_BUSINESS_TYPES = "/auth/business-types/";
 export const AUTH_CHANGE_PIN = "/auth/change-pin/";
 export const AUTH_CHECK_PHONE = "/auth/check-phone/";
@@ -81,6 +81,8 @@ export const NOTIFICATIONS_MARK_ALL_READ =
   "/api/products/notifications/mark_all_read/";
 export const NOTIFICATIONS_UNREAD_COUNT =
   "/api/products/notifications/unread_count/";
+export const NOTIFICATIONS_POPUPS =
+  "/api/products/notifications/popups/";
 
 // ANALYTICS
 export const ANALYTICS_FINANCIAL_SUMMARY =

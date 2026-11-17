@@ -11,7 +11,7 @@ export const formatDateLabel = (date: Date): string =>
  * grouping is reliable across JS engines (Hermes does not always apply locale
  * grouping).
  *
- * Decimals are preserved as-is by default — whole numbers stay whole
+ * Decimals are preserved as-is by default  whole numbers stay whole
  * (50000 -> "50,000") and fractional values keep their decimals
  * (250.5 -> "250.5"). Pass `decimals` to force a fixed number of decimal
  * places (e.g. formatNumber(1234, 2) -> "1,234.00").

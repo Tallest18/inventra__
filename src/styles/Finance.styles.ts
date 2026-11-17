@@ -23,7 +23,7 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(231, 238, 250, 0.9)",
-    // FIX: zIndex removed — rendered after ScrollView handles visual stacking.
+    // FIX: zIndex removed  rendered after ScrollView handles visual stacking.
     // Having zIndex here was creating a stacking context that trapped the
     // native date picker underneath it on Android.
   },
@@ -43,7 +43,7 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: H_PAD,
     paddingTop: verticalScale(isTablet ? 20 : 14),
-    paddingBottom: verticalScale(isTablet ? 14 : 10),
+    paddingBottom: verticalScale(isTablet ? 20 : 16),
     backgroundColor: "#E7EEFA",
   },
   headerTitle: {

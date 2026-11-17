@@ -20,6 +20,7 @@ export interface Notification {
   isNew: boolean;
   isRead: boolean;
   productId?: string;
+  productName?: string;
   price?: number | string;
   dateAdded: string;
   actions?: NotificationAction[];

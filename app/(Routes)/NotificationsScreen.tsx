@@ -1,7 +1,7 @@
 // app/(Routes)/NotificationsScreen.tsx
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Dimensions,
@@ -13,8 +13,11 @@ import {
     View,
 } from "react-native";
 
+import { ListFooterLoader } from "@/components/ui";
+import { NotificationsSkeleton } from "@/components/skeletons";
+import { useInfiniteList } from "@/hooks/useInfiniteList";
 import { useMarkNotificationRead } from "@/hooks/useNotifications";
-import { listNotifications } from "@/src/api";
+import { listNotifications, type ApiNotification } from "@/src/api";
 import { getFontSize } from "../../utils/scaling";
 
 const { width, height } = Dimensions.get("window");
@@ -48,6 +51,7 @@ interface Notification {
   time: string;
   isRead: boolean;
   productId?: string;
+  productName?: string;
   dateAdded: number;
   userId?: string;
 }
@@ -85,19 +89,103 @@ const groupNotificationsByDate = (notifications: Notification[]) => {
   return groups;
 };
 
+const getTimeAgo = (dateString?: string): string => {
+  if (!dateString) return "Just now";
+  const date = new Date(dateString).getTime();
+  const diff = Math.max(0, Date.now() - date);
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  if (diff < minute) return "Just now";
+  if (diff < hour) return `${Math.floor(diff / minute)}min Ago`;
+  if (diff < day) return `${Math.floor(diff / hour)}h Ago`;
+  if (diff < 7 * day)
+    return `${Math.floor(diff / day)} Day${Math.floor(diff / day) > 1 ? "s" : ""} Ago`;
+  return new Date(dateString).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+
+const TYPE_LABEL: Record<string, string> = {
+  low_stock: "Low Stock Alert",
+  out_of_stock: "Out of Stock Alert",
+  high_selling: "High-Selling Item Alert",
+  zero_sales: "Zero Sales Alert",
+  daily_summary: "Daily Summary Report",
+  weekly_summary: "Weekly Summary Report",
+  expense: "Expense Reminder",
+  expense_exceeded: "Expense Alert",
+  expiry: "Stock Expiry Alert",
+  backup: "Backup Reminder",
+  app_update: "App Update",
+  sale: "Sale Completed",
+  product_added: "Product Added",
+  pending_payments: "Pending Payments",
+  restock_recommendation: "Restock Suggestion",
+  unusual_sales: "Unusual Sales",
+  new_feature_tip: "Tip",
+  device_storage: "Storage Warning",
+  subscription_reminder: "Subscription Reminder",
+  catalog_update: "Catalog Update",
+};
+
+const toNotification = (n: ApiNotification): Notification => ({
+  id: String(n.id),
+  type: (n.type as Notification["type"]) || "daily_summary",
+  title: n.title,
+  message: n.description || n.message || "",
+  time: getTimeAgo(n.created_at),
+  isRead:
+    typeof n.is_read === "boolean"
+      ? n.is_read
+      : String(n.status || "").toLowerCase() === "read",
+  productId:
+    n.inventoryId != null
+      ? String(n.inventoryId)
+      : n.product != null
+        ? String(n.product)
+        : undefined,
+  productName: n.inventory_name || undefined,
+  dateAdded: n.created_at ? new Date(n.created_at).getTime() : Date.now(),
+  userId: "api-user",
+});
+
 const NotificationsScreen = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const markRead = useMarkNotificationRead();
+  // Opened items show as read immediately, before the next poll confirms it.
+  const [readLocally, setReadLocally] = useState<Set<string>>(new Set());
+
+  // 20 at a time, next page on scroll; loaded pages refresh every 15s.
+  const feed = useInfiniteList<ApiNotification>({
+    queryKey: ["notifications", "infinite"],
+    fetchPage: (page, page_size) => listNotifications({ page, page_size }),
+    getId: (n) => n.id,
+    refetchInterval: 15000,
+  });
+  const loading = feed.isLoading;
+  const notifications = useMemo(
+    () =>
+      feed.items.map((n) => {
+        const mapped = toNotification(n);
+        return readLocally.has(mapped.id) ? { ...mapped, isRead: true } : mapped;
+      }),
+    [feed.items, readLocally],
+  );
 
   const openNotification = (item: Notification) => {
     if (!item.isRead) {
       markRead.mutate(item.id);
-      // Optimistically mark it read in the local list.
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n)),
-      );
+      setReadLocally((prev) => new Set(prev).add(item.id));
+    }
+    if (item.type === "high_selling") {
+      const target =
+        item.productName ||
+        (item.message.includes(" has sold")
+          ? item.message.split(" has sold")[0].trim()
+          : item.productId || "");
+      router.push({
+        pathname: "/(Main)/Finance",
+        params: { scrollTo: "topProducts", targetProduct: target },
+      });
+      return;
     }
     router.push({
       pathname: "/(Routes)/RestockDetails",
@@ -105,52 +193,21 @@ const NotificationsScreen = () => {
     });
   };
 
-  useEffect(() => {
-    const getTimeAgo = (dateString?: string): string => {
-      if (!dateString) return "Just now";
-      const date = new Date(dateString).getTime();
-      const diff = Math.max(0, Date.now() - date);
-      const minute = 60 * 1000;
-      const hour = 60 * minute;
-      const day = 24 * hour;
-      if (diff < minute) return "Just now";
-      if (diff < hour) return `${Math.floor(diff / minute)}min Ago`;
-      if (diff < day) return `${Math.floor(diff / hour)}h Ago`;
-      return `${Math.floor(diff / day)} Day${Math.floor(diff / day) > 1 ? "s" : ""} Ago`;
-    };
-
-    const loadNotifications = async () => {
-      try {
-        const response = await listNotifications({ page: 0, page_size: 20 });
-        const fetched: Notification[] = response.results.map((n) => ({
-          id: String(n.id),
-          type: (n.type as Notification["type"]) || "daily_summary",
-          title: n.title,
-          message: n.description || n.message || "",
-          time: getTimeAgo(n.created_at),
-          isRead:
-            typeof n.is_read === "boolean"
-              ? n.is_read
-              : String(n.status || "").toLowerCase() === "read",
-          productId: n.product ? String(n.product) : undefined,
-          dateAdded: n.created_at
-            ? new Date(n.created_at).getTime()
-            : Date.now(),
-          userId: "api-user",
-        }));
-        setNotifications(fetched);
-        setError(null);
-      } catch (err) {
-        setError("Failed to load notifications. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadNotifications();
-    const interval = setInterval(loadNotifications, 15000);
-    return () => clearInterval(interval);
-  }, []);
+  const handleViewProductPage = (item: Notification) => {
+    if (!item.isRead) {
+      markRead.mutate(item.id);
+      setReadLocally((prev) => new Set(prev).add(item.id));
+    }
+    const targetId = item.productId;
+    if (targetId) {
+      router.push({
+        pathname: "/(Main)/Inventory",
+        params: { focusProductId: String(targetId) },
+      });
+    } else {
+      openNotification(item);
+    }
+  };
 
   const getNotificationIcon = (type: Notification["type"]) => {
     switch (type) {
@@ -242,34 +299,46 @@ const NotificationsScreen = () => {
           {/* Top row: small title + time */}
           <View style={styles.cardTopRow}>
             <Text style={styles.cardTitle} numberOfLines={1}>
-              {item.title}
+              {TYPE_LABEL[item.type] ?? item.title}
             </Text>
             <Text style={styles.cardTime}>{item.time}</Text>
           </View>
 
           {/* Bold message */}
-          <Text style={styles.cardMessage} numberOfLines={2}>
-            {item.message}
+          <Text style={styles.cardMessage} numberOfLines={1}>
+            {item.message || item.title}
           </Text>
 
           {/* Action row: link(s) + New badge */}
           <View style={styles.cardActionRow}>
             <View style={styles.actionLinks}>
               {actions.primary ? (
-                <Text style={styles.actionLink}>{actions.primary}</Text>
+                <TouchableOpacity
+                  onPress={() => openNotification(item)}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                >
+                  <Text style={styles.actionLink} numberOfLines={1}>
+                    {actions.primary}
+                  </Text>
+                </TouchableOpacity>
               ) : null}
               {actions.secondary ? (
                 <>
                   <Text style={styles.actionSeparator}> | </Text>
-                  <Text style={styles.actionLink}>{actions.secondary}</Text>
+                  <TouchableOpacity
+                    onPress={() => handleViewProductPage(item)}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                  >
+                    <Text style={styles.actionLink} numberOfLines={1}>
+                      {actions.secondary}
+                    </Text>
+                  </TouchableOpacity>
                 </>
               ) : null}
             </View>
-            {!item.isRead && (
-              <View style={styles.newBadge}>
-                <Text style={styles.newBadgeText}>New</Text>
-              </View>
-            )}
+            {!item.isRead && <Text style={styles.newText}>New</Text>}
           </View>
         </View>
       </TouchableOpacity>
@@ -307,19 +376,16 @@ const NotificationsScreen = () => {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Ionicons name="notifications" size={30} color="#FACC15" />
+            <Ionicons name="notifications" size={32} color="#FACC15" />
             <Text style={styles.headerTitle}>Notifications</Text>
           </View>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={() => router.back()} accessibilityLabel="Go back">
             <View style={styles.closeButton}>
-              <Feather name="x" size={24} color="#000" />
+              <Ionicons name="arrow-back" size={24} color="#1C1C1C" />
             </View>
           </TouchableOpacity>
         </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0056D2" />
-          <Text style={styles.loadingText}>Loading notifications...</Text>
-        </View>
+        <NotificationsSkeleton />
       </SafeAreaView>
     );
   }
@@ -332,12 +398,12 @@ const NotificationsScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Ionicons name="notifications" size={30} color="#FACC15" />
+          <Ionicons name="notifications" size={32} color="#FACC15" />
           <Text style={styles.headerTitle}>Notifications</Text>
         </View>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.back()} accessibilityLabel="Go back">
           <View style={styles.closeButton}>
-            <Feather name="x" size={24} color="#000" />
+            <Ionicons name="arrow-back" size={24} color="#1C1C1C" />
           </View>
         </TouchableOpacity>
       </View>
@@ -358,6 +424,9 @@ const NotificationsScreen = () => {
           sections.length === 0 && { flex: 1 },
         ]}
         ListEmptyComponent={renderEmptyState()}
+        ListFooterComponent={<ListFooterLoader loading={feed.isFetchingMore} />}
+        onEndReached={feed.loadMore}
+        onEndReachedThreshold={0.5}
         showsVerticalScrollIndicator={false}
       />
     </SafeAreaView>
@@ -385,14 +454,17 @@ const styles = StyleSheet.create({
     gap: scale(10),
   },
   headerTitle: {
-    fontSize: getFontSize(moderateScale(24)),
+    fontSize: getFontSize(moderateScale(28)),
     fontFamily: "DMSans_700Bold",
     color: "#1C1C1C",
   },
   closeButton: {
     backgroundColor: "#fff",
-    padding: scale(10),
-    borderRadius: moderateScale(10),
+    width: scale(52),
+    height: scale(44),
+    borderRadius: moderateScale(8),
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   // List
@@ -404,29 +476,29 @@ const styles = StyleSheet.create({
     marginBottom: verticalScale(8),
   },
   sectionHeader: {
-    fontSize: getFontSize(moderateScale(13)),
-    color: "#888",
+    fontSize: getFontSize(moderateScale(14)),
+    color: "#6B7280",
     fontFamily: "DMSans_400Regular",
     marginTop: verticalScale(16),
     marginBottom: verticalScale(8),
   },
 
-  // Notification card — matches the UI screenshot
+  // Notification card  matches the UI screenshot
   notificationCard: {
     flexDirection: "row",
     alignItems: "flex-start",
     backgroundColor: "#FFFFFF",
-    borderRadius: moderateScale(14),
-    padding: scale(14),
-    marginBottom: verticalScale(10),
-    gap: scale(12),
+    borderRadius: moderateScale(16),
+    paddingVertical: scale(16),
+    paddingHorizontal: scale(16),
+    marginBottom: verticalScale(12),
+    gap: scale(14),
   },
+  // Plain outlined icon, no tile behind it (design).
   iconBox: {
-    borderRadius: moderateScale(10),
     justifyContent: "center",
     alignItems: "center",
-    display: "flex",
-    width: scale(40),
+    width: scale(36),
     height: scale(40),
   },
   cardContent: {
@@ -439,44 +511,51 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   cardTitle: {
-    fontSize: getFontSize(moderateScale(12)),
-    color: "#888",
+    fontSize: getFontSize(moderateScale(13)),
+    color: "#6B7280",
     fontFamily: "DMSans_400Regular",
     flex: 1,
   },
   cardTime: {
-    fontSize: getFontSize(moderateScale(11)),
-    color: "#888",
+    fontSize: getFontSize(moderateScale(10)),
+    color: "#6B7280",
     fontFamily: "DMSans_400Regular",
     marginLeft: scale(8),
   },
   cardMessage: {
-    fontSize: getFontSize(moderateScale(15)),
-    fontFamily: "DMSans_700Bold",
+    fontSize: getFontSize(moderateScale(17)),
+    fontFamily: "DMSans_400Regular",
     color: "#1C1C1C",
-    lineHeight: getFontSize(moderateScale(22)),
+    lineHeight: getFontSize(moderateScale(24)),
   },
   cardActionRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: verticalScale(2),
+    marginTop: verticalScale(4),
   },
   actionLinks: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
   },
   actionLink: {
-    fontSize: getFontSize(moderateScale(12)),
+    fontSize: getFontSize(moderateScale(12.5)),
     color: "#1155CC",
-    fontFamily: "DMSans_400Regular",
+    fontFamily: "DMSans_500Medium",
   },
   actionSeparator: {
-    fontSize: getFontSize(moderateScale(12)),
-    color: "#1155CC",
-    marginHorizontal: scale(2),
+    fontSize: getFontSize(moderateScale(12.5)),
+    color: "#9CA3AF",
+    marginHorizontal: scale(4),
+  },
+  newText: {
+    fontSize: getFontSize(moderateScale(10)),
+    color: "#F5B400",
+    fontFamily: "DMSans_500Medium",
+    marginLeft: scale(6),
+    flexShrink: 0,
   },
   newBadge: {
     backgroundColor: "#fff",

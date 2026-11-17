@@ -15,6 +15,8 @@ import {
     View,
 } from "react-native";
 import { moderateScale } from "../../utils/scaling";
+import { Skeleton } from "@/components/ui";
+import ProductSummarySheet from "@/components/product/ProductSummarySheet";
 import AddProductFlow from "./AddProductFlow";
 import { styles } from "./RestockDetails.styles";
 
@@ -79,6 +81,7 @@ const RestockDetails: React.FC = () => {
     productId?: string;
   }>();
   const [showRestockModal, setShowRestockModal] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
 
   // ─── Fetch the notification ──────────────────────────────────────────────
   const {
@@ -113,10 +116,28 @@ const RestockDetails: React.FC = () => {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View
-          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-        >
-          <ActivityIndicator size="large" color="#1155CC" />
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#1F2937" />
+          </TouchableOpacity>
+          <Skeleton width={130} height={20} />
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={{ padding: 16 }}>
+          <View style={{ backgroundColor: "#FFFFFF", borderRadius: 16, padding: 16, marginBottom: 16 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+              <Skeleton width={36} height={36} borderRadius={18} style={{ marginRight: 12 }} />
+              <Skeleton width="50%" height={16} />
+            </View>
+            <Skeleton width="90%" height={14} style={{ marginBottom: 6 }} />
+            <Skeleton width="70%" height={14} />
+          </View>
+          <View style={{ backgroundColor: "#FFFFFF", borderRadius: 16, padding: 16 }}>
+            <Skeleton width="100%" height={140} borderRadius={8} style={{ marginBottom: 14 }} />
+            <Skeleton width="60%" height={18} style={{ marginBottom: 8 }} />
+            <Skeleton width="40%" height={14} style={{ marginBottom: 16 }} />
+            <Skeleton width="100%" height={46} borderRadius={10} />
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -199,8 +220,8 @@ const RestockDetails: React.FC = () => {
   const handleViewProduct = () => {
     if (!inventoryId) return;
     router.push({
-      pathname: "/(Routes)/ProductDetails",
-      params: { productId: inventoryId },
+      pathname: "/(Main)/Inventory",
+      params: { focusProductId: String(inventoryId) },
     });
   };
 
@@ -225,14 +246,18 @@ const RestockDetails: React.FC = () => {
         {/* Main Card with Product Info */}
         <View style={styles.mainCard}>
           <View style={styles.productHeader}>
-            <Image
-              source={
-                imageUri
-                  ? { uri: imageUri }
-                  : require("../../assets/images/noImg.jpg")
-              }
-              style={styles.productImage}
-            />
+            {/* White tile with the product shown whole inside it, per design. */}
+            <View style={styles.productImageTile}>
+              <Image
+                source={
+                  imageUri
+                    ? { uri: imageUri }
+                    : require("../../assets/images/noImg.jpg")
+                }
+                style={styles.productImage}
+                resizeMode="contain"
+              />
+            </View>
             <View style={styles.productInfo}>
               <Text style={styles.notificationType}>{typeLabel}</Text>
               <Text
@@ -305,6 +330,13 @@ const RestockDetails: React.FC = () => {
           <Text style={styles.tipMessage}>{tipMessage}</Text>
         </View>
       </ScrollView>
+
+      <ProductSummarySheet
+        visible={showSummary}
+        productId={inventoryId ?? null}
+        initialItem={inventoryItem}
+        onClose={() => setShowSummary(false)}
+      />
 
       {productModel && (
         <AddProductFlow

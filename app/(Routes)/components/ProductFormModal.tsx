@@ -93,11 +93,7 @@ const ProductFormModal: React.FC<Props> = ({
 
   const renderProgressBar = () => (
     <View style={styles.progressBarWrapper}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.progressContainer}
-      >
+      <View style={styles.progressContainer}>
         {STEPS.map((step, index) => (
           <View key={index} style={styles.stepItem}>
             <Text
@@ -108,6 +104,8 @@ const ProductFormModal: React.FC<Props> = ({
                   : styles.stepTextInactive,
               ]}
               numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
             >
               {step}
             </Text>
@@ -121,7 +119,7 @@ const ProductFormModal: React.FC<Props> = ({
             />
           </View>
         ))}
-      </ScrollView>
+      </View>
     </View>
   );
 
@@ -135,7 +133,7 @@ const ProductFormModal: React.FC<Props> = ({
     >
       <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={{ flex: 1 }}
         >
           <View style={styles.header}>
@@ -275,11 +273,12 @@ const styles = StyleSheet.create({
   progressContainer: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: isSmall ? 16 : 24,
-    paddingRight: isSmall ? 12 : 20,
+    gap: isSmall ? 10 : 16,
   },
   stepItem: {
-    alignItems: "flex-start",
+    flex: 1,
+    minWidth: 0,
+    alignItems: "stretch",
   },
   stepText: {
     fontSize: isSmall ? 12 : 14,

@@ -75,7 +75,7 @@ const CreatePinScreen: React.FC = () => {
       });
       if (params.phone) await saveLastPhone(params.phone);
 
-      // complete-registration issues no tokens — the ones from verify-otp hold.
+      // complete-registration issues no tokens  the ones from verify-otp hold.
       // The trial offer is presented on the dashboard, where the user actually
       // lands, rather than lingering on a screen they have finished with.
       router.replace("/(Main)/Home");
@@ -95,7 +95,7 @@ const CreatePinScreen: React.FC = () => {
     }
   };
 
-  // Advance as soon as the fourth digit lands — the design has no submit button.
+  // Advance as soon as the fourth digit lands  the design has no submit button.
   useEffect(() => {
     if (submitting) return;
 

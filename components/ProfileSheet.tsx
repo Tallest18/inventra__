@@ -1,11 +1,11 @@
-import { clearTokens, getProfile, logout } from "@/src/api";
+import { AnimatedModal, MODAL_CONTENT_RESET } from "@/components/ui/AnimatedModal";
+import { clearTokens, getProfile, logout, signedOutRoute } from "@/src/api";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Image,
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -135,23 +135,21 @@ const ProfileSheet: React.FC<ProfileSheetProps> = ({ visible, onClose }) => {
     }
   };
 
-  const handleSuccessClose = () => {
+  const handleSuccessClose = async () => {
     setShowSuccessModal(false);
     onClose();
-    router.replace("/(Auth)/WelcomeScreen");
+    router.replace(await signedOutRoute());
   };
 
   return (
     <>
-      <Modal
+      <AnimatedModal
         visible={visible}
-        transparent
-        animationType="slide"
         onRequestClose={onClose}
         onShow={() => setLayoutKey((k) => k + 1)}
         statusBarTranslucent
       >
-        <View style={styles.overlay}>
+        <View style={[styles.overlay, MODAL_CONTENT_RESET]}>
           {/* Tap outside to dismiss */}
           <TouchableOpacity
             style={StyleSheet.absoluteFill}
@@ -237,7 +235,7 @@ const ProfileSheet: React.FC<ProfileSheetProps> = ({ visible, onClose }) => {
             </ScrollView>
           </View>
         </View>
-      </Modal>
+      </AnimatedModal>
 
       <ConfirmModal
         visible={showLogoutModal}

@@ -1,10 +1,14 @@
 // app/(routes)/_layout.tsx
-import { Stack } from "expo-router";
+import {
+  AnimatedStack as Stack,
+  OVERLAY_ROUTE,
+  PAGE_TRANSITION,
+} from "@/components/navigation/AnimatedStack";
 import React from "react";
 
 export default function RoutesLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={PAGE_TRANSITION}>
       <Stack.Screen
         name="Profile"
         options={{
@@ -53,6 +57,12 @@ export default function RoutesLayout() {
           headerShown: false,
           title: "Profile",
         }}
+      />
+      {/* Product Summary is a bottom sheet over the current screen, not a page.
+          The screen itself draws the dimmed backdrop and slides the sheet up. */}
+      <Stack.Screen
+        name="ProductDetails"
+        options={OVERLAY_ROUTE}
       />
       <Stack.Screen
         name="PrivacyPolicy"

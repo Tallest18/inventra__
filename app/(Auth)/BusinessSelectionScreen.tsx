@@ -63,7 +63,7 @@ const BusinessSelectionScreen: React.FC = () => {
       })
       .catch((err) => {
         // The list is a fixed set on the backend, so a network blip shouldn't
-        // block onboarding — fall back to the documented values.
+        // block onboarding  fall back to the documented values.
         if (cancelled) return;
         setOptions(FALLBACK);
         setError(parseApiError(err).message);

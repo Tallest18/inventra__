@@ -157,7 +157,7 @@ def cover_page_bg(canvas, doc):
     # Bottom text
     canvas.setFont("Helvetica", 8)
     canvas.setFillColor(HexColor("#AABBEE"))
-    canvas.drawCentredString(W/2, 0.7*cm, "Confidential — Wonderfall Systems © 2025")
+    canvas.drawCentredString(W/2, 0.7*cm, "Confidential  Wonderfall Systems © 2025")
     canvas.restoreState()
 
 def doc_page_bg(canvas, doc):
@@ -167,7 +167,7 @@ def doc_page_bg(canvas, doc):
     canvas.rect(0, H - 1.5*cm, W, 1.5*cm, fill=1, stroke=0)
     canvas.setFont("Helvetica-Bold", 9)
     canvas.setFillColor(WHITE)
-    canvas.drawString(1.5*cm, H - 0.95*cm, "INVENTRA — Technical & Backend Documentation")
+    canvas.drawString(1.5*cm, H - 0.95*cm, "INVENTRA  Technical & Backend Documentation")
     canvas.drawRightString(W - 1.5*cm, H - 0.95*cm, "Wonderfall Systems")
     # Footer
     canvas.setFillColor(LIGHT_GRAY)
@@ -241,7 +241,7 @@ story.append(SP(1.5*cm))
 
 meta = [
     ["Developer / Owner", "Wonderfall Systems"],
-    ["Platform", "React Native (Expo) — Android &amp; iOS"],
+    ["Platform", "React Native (Expo)  Android &amp; iOS"],
     ["Version", "1.0.0"],
     ["Firebase Project", "wonderfall-be388"],
     ["EAS Project ID", "a3a734b6-9f27-4308-b090-5f7524398726"],
@@ -332,7 +332,7 @@ for num, title, pg in toc_entries:
 
 story.append(PB())
 
-# ═══════════════════════════ SECTION 1 — PROJECT OVERVIEW ═══════════════
+# ═══════════════════════════ SECTION 1  PROJECT OVERVIEW ═══════════════
 story.append(P("1. Project Overview", h1))
 story += section_rule()
 story.append(SP(4))
@@ -342,7 +342,7 @@ overview_data = [
     ["App Name", "Inventra"],
     ["Tagline", '"No more paper book, your stock is safe here"'],
     ["Developer / Owner", "Wonderfall Systems"],
-    ["Platform", "React Native (Expo) — Android &amp; iOS"],
+    ["Platform", "React Native (Expo)  Android &amp; iOS"],
     ["Version", "1.0.0"],
     ["App Scheme", "inventra"],
     ["Bundle ID (iOS)", "INVENTRA2.W"],
@@ -360,10 +360,10 @@ story += hdr_table(
      else [Paragraph(str(c), body_left) for c in row]
      for ri, row in enumerate(overview_data)],
     [5.5*cm, W - 3*cm - 5.5*cm],
-    "Table 1.1 — Project Metadata"
+    "Table 1.1  Project Metadata"
 )
 
-# ═══════════════════════════ SECTION 2 — PURPOSE ═══════════════════════════
+# ═══════════════════════════ SECTION 2  PURPOSE ═══════════════════════════
 story.append(P("2. Purpose &amp; Target Market", h1))
 story += section_rule()
 story.append(P(
@@ -387,18 +387,18 @@ story += hdr_table(
      else [Paragraph(str(c), body_left) for c in row]
      for ri, row in enumerate(cap_data)],
     [1.2*cm, 4.5*cm, W - 3*cm - 5.7*cm],
-    "Table 2.1 — Core Capabilities"
+    "Table 2.1  Core Capabilities"
 )
 story.append(P("Target Business Types:", h3))
 for btype, desc in [
-    ("<b>Retail Shop</b>", "Supermarkets, provision stores, boutiques, pharmacies — any business selling physical goods."),
-    ("<b>Service Business</b>", "Salons, barbers, tailors, mechanics — businesses that sell services and track consumables."),
+    ("<b>Retail Shop</b>", "Supermarkets, provision stores, boutiques, pharmacies  any business selling physical goods."),
+    ("<b>Service Business</b>", "Salons, barbers, tailors, mechanics  businesses that sell services and track consumables."),
 ]:
     story.append(P(f"• {btype}: {desc}", bullet))
 
 story.append(PB())
 
-# ═══════════════════════════ SECTION 3 — TECH STACK ════════════════════════
+# ═══════════════════════════ SECTION 3  TECH STACK ════════════════════════
 story.append(P("3. Technology Stack", h1))
 story += section_rule()
 
@@ -420,20 +420,20 @@ fe_data = [
     ["AsyncStorage", "Latest", "Local key-value persistence"],
     ["expo-camera", "Latest", "Barcode / SKU scanning"],
     ["expo-linear-gradient", "Latest", "UI gradient backgrounds"],
-    ["Poppins (Google Fonts)", "—", "Primary typeface (Regular, Medium, SemiBold, Bold, Light)"],
+    ["Poppins (Google Fonts)", "", "Primary typeface (Regular, Medium, SemiBold, Bold, Light)"],
 ]
 story += hdr_table(
     [[Paragraph(c, make_style("TH",fontSize=9,textColor=WHITE,fontName="Helvetica-Bold")) for c in row] if ri==0
      else [Paragraph(str(c), body_left) for c in row]
      for ri, row in enumerate(fe_data)],
     [5.5*cm, 2.5*cm, W - 3*cm - 8*cm],
-    "Table 3.1 — Frontend Dependencies"
+    "Table 3.1  Frontend Dependencies"
 )
 
 story.append(SP(6))
 story.append(P("3.2 Backend (Firebase)", h2))
 story.append(P(
-    "Inventra currently uses a client-side Firebase SDK architecture — there is no custom server. "
+    "Inventra currently uses a client-side Firebase SDK architecture  there is no custom server. "
     "All data operations are performed directly against Firebase services from the React Native client.", body))
 be_data = [
     ["Firebase Service", "Usage"],
@@ -446,12 +446,12 @@ story += hdr_table(
      else [Paragraph(str(c), body_left) for c in row]
      for ri, row in enumerate(be_data)],
     [5*cm, W - 3*cm - 5*cm],
-    "Table 3.2 — Firebase Backend Services"
+    "Table 3.2  Firebase Backend Services"
 )
 
 story.append(PB())
 
-# ═══════════════════════════ SECTION 4 — AUTH FLOW ════════════════════════
+# ═══════════════════════════ SECTION 4  AUTH FLOW ════════════════════════
 story.append(P("4. Authentication Flow", h1))
 story += section_rule()
 story.append(P(
@@ -524,7 +524,7 @@ story.append(P(
 
 story.append(PB())
 
-# ═══════════════════════════ SECTION 5 — DATA MODELS ══════════════════════
+# ═══════════════════════════ SECTION 5  DATA MODELS ══════════════════════
 story.append(P("5. Firebase Data Models (Firestore)", h1))
 story += section_rule()
 story.append(P(
@@ -550,7 +550,7 @@ story += hdr_table(
      else [Paragraph(str(c), body_left) for c in row]
      for ri, row in enumerate(users_fields)],
     [3.5*cm, 2.8*cm, W - 3*cm - 6.3*cm],
-    "Table 5.1 — users document fields"
+    "Table 5.1  users document fields"
 )
 
 # 5.2 products
@@ -562,12 +562,12 @@ prod_fields = [
     ["name", "string", "Product name"],
     ["category", "string", "Foodstuffs | Soft Drinks | Beverages | Noodles &amp; Pasta | Snacks &amp; Biscuits"],
     ["barcode", "string", "SKU / barcode string"],
-    ["image", "object|null", "{uri, type?, fileName?, fileSize?} — Firebase Storage URL, or null"],
+    ["image", "object|null", "{uri, type?, fileName?, fileSize?}  Firebase Storage URL, or null"],
     ["quantityType", "string", '"Single Items" | "Cartons"'],
     ["unitsInStock", "number", "Current units in stock"],
     ["costPrice", "number", "Cost price per unit (₦)"],
     ["sellingPrice", "number", "Selling price per unit (₦)"],
-    ["lowStockThreshold", "number", "Alert threshold — triggers low_stock notification"],
+    ["lowStockThreshold", "number", "Alert threshold  triggers low_stock notification"],
     ["expiryDate", "string", "ISO date string (YYYY-MM-DD)"],
     ["supplier.name", "string", "Supplier contact name"],
     ["supplier.phone", "string", "Supplier phone number"],
@@ -584,7 +584,7 @@ story += hdr_table(
      else [Paragraph(str(c), body_left) for c in row]
      for ri, row in enumerate(prod_fields)],
     [3.8*cm, 2.5*cm, W - 3*cm - 6.3*cm],
-    "Table 5.2 — products document fields"
+    "Table 5.2  products document fields"
 )
 
 story.append(PB())
@@ -617,7 +617,7 @@ story += hdr_table(
      else [Paragraph(str(c), body_left) for c in row]
      for ri, row in enumerate(sales_fields)],
     [4.5*cm, 2.2*cm, W - 3*cm - 6.7*cm],
-    "Table 5.3 — sales document fields"
+    "Table 5.3  sales document fields"
 )
 
 story += info_box(
@@ -645,12 +645,12 @@ story += hdr_table(
      else [Paragraph(str(c), body_left) for c in row]
      for ri, row in enumerate(notif_fields)],
     [3.5*cm, 2.8*cm, W - 3*cm - 6.3*cm],
-    "Table 5.4 — notifications document fields"
+    "Table 5.4  notifications document fields"
 )
 
 story.append(PB())
 
-# ═══════════════════════════ SECTION 6 — SCREENS ══════════════════════════
+# ═══════════════════════════ SECTION 6  SCREENS ══════════════════════════
 story.append(P("6. Screens &amp; Features", h1))
 story += section_rule()
 
@@ -677,14 +677,14 @@ story += screen_entry("1", "Home Dashboard", "app/(Main)/Home.tsx",
         "Total stock left (sum of all product unitsInStock)",
         "Notification badges and notification list",
         "Recent sales summary list (sorted newest first)",
-        "Quick-access 'Add Product' button — opens AddProductFlow modal",
+        "Quick-access 'Add Product' button  opens AddProductFlow modal",
         "Navigation: Notification bell → NotificationsScreen, sales item → SalesDetailScreen, 'View All' → TotalSummaryScreen",
     ],
     [
-        "users/{uid} — getDoc for user profile",
-        "products (realtime) — filtered by userId",
-        "sales (realtime) — filtered by userId",
-        "notifications (realtime) — filtered by userId, ordered by dateAdded desc",
+        "users/{uid}  getDoc for user profile",
+        "products (realtime)  filtered by userId",
+        "sales (realtime)  filtered by userId",
+        "notifications (realtime)  filtered by userId, ordered by dateAdded desc",
     ]
 )
 
@@ -719,13 +719,13 @@ story += screen_entry("4", "Finance Screen", "app/(Main)/Finance.tsx",
         "Period selector: Today / Week / Month",
         "Summary cards: Total Revenue, Total Profit, Total Expenses",
         "Daily summary: revenue, profit, sales count, order count",
-        "Weekly line chart — Revenue vs. Profit per day (Mon–Sun) using react-native-chart-kit",
+        "Weekly line chart  Revenue vs. Profit per day (Mon–Sun) using react-native-chart-kit",
         "Monthly report summary",
         "Top performing products (by quantity sold &amp; revenue)",
         "Slow-moving stock analysis (products by days in stock)",
         "Stock recommendations (warnings / info / success)",
         "Seasonal business insights",
-        "PDF Report Export — generates HTML-based PDF via expo-print + expo-sharing",
+        "PDF Report Export  generates HTML-based PDF via expo-print + expo-sharing",
     ]
 )
 
@@ -735,7 +735,7 @@ story += screen_entry("5", "More / Profile Hub", "app/(Main)/More.tsx",
         "Displays user name and phone number from Firestore",
         "Business Options: Business Information, Change Profile Photo → Profile screen",
         "App Settings: Notifications, Help Center, Privacy Policy, Settings",
-        "Sign Out — calls signOut(auth) then navigates to Onboarding1",
+        "Sign Out  calls signOut(auth) then navigates to Onboarding1",
     ]
 )
 
@@ -744,10 +744,10 @@ story.append(PB())
 story += screen_entry("6", "Add Product Flow", "app/(Routes)/AddProductFlow.tsx",
     "Full-featured multi-step modal for adding new products to inventory.",
     [
-        "Step 0 — Choice: 'Add New Product' or 'Search Existing'",
-        "Step 1 — Basic Info: Product Name (required), SKU/Barcode, Category (dropdown), Product Image (camera/gallery)",
-        "Step 2 — Inventory: Quantity type (Single Items or Cartons), stock counts, cost/selling prices, low stock threshold, expiry date",
-        "Step 3 — Supplier: Supplier name and phone number",
+        "Step 0  Choice: 'Add New Product' or 'Search Existing'",
+        "Step 1  Basic Info: Product Name (required), SKU/Barcode, Category (dropdown), Product Image (camera/gallery)",
+        "Step 2  Inventory: Quantity type (Single Items or Cartons), stock counts, cost/selling prices, low stock threshold, expiry date",
+        "Step 3  Supplier: Supplier name and phone number",
         "On save: uploads image to Firebase Storage at products/{uid}/{filename}, creates Firestore products document",
         "Post-save triggers: notifyProductAdded(), checkExpiringProducts(), checkLowStock()",
     ]
@@ -854,7 +854,7 @@ story += screen_entry("15", "Sales Detail Screen", "app/(Routes)/SalesDetailScre
 
 story.append(PB())
 
-# ═══════════════════════════ SECTION 7 — NOTIFICATIONS ════════════════════
+# ═══════════════════════════ SECTION 7  NOTIFICATIONS ════════════════════
 story.append(P("7. Notification System", h1))
 story += section_rule()
 story.append(P(
@@ -865,7 +865,7 @@ story.append(SP(6))
 
 notif_helpers = [
     ("createNotification()", "userId, type, title, message, productId?",
-     "Base helper — creates a notification document in Firestore with the given fields. All other helpers call this."),
+     "Base helper  creates a notification document in Firestore with the given fields. All other helpers call this."),
     ("checkLowStock()", "userId, productId, productName, unitsInStock, lowStockThreshold",
      "Creates 'out_of_stock' notification if unitsInStock === 0. Creates 'low_stock' notification if unitsInStock ≤ lowStockThreshold."),
     ("notifyProductAdded()", "userId, productId, productName",
@@ -886,7 +886,7 @@ story += hdr_table(
      else [Paragraph(str(c), make_style("CodeSmall",fontSize=8,fontName="Courier" if i==0 else "Helvetica",textColor=DARK_GRAY)) for i,c in enumerate(row)]
      for ri, row in enumerate(nh_data)],
     [4.2*cm, 4.5*cm, W - 3*cm - 8.7*cm],
-    "Table 7.1 — Notification Helper Functions"
+    "Table 7.1  Notification Helper Functions"
 )
 
 notif_types_data = [
@@ -900,21 +900,21 @@ notif_types_data = [
     ["zero_sales", "Bar-chart icon", "No sales recorded for the day"],
     ["product_added", "Package icon", "New product added to inventory"],
     ["sale", "Shopping-bag icon", "Sale completed at checkout"],
-    ["expense", "—", "Expense event (reserved for future use)"],
-    ["backup", "—", "Backup event (reserved for future use)"],
-    ["app_update", "—", "App update notification (reserved for future use)"],
+    ["expense", "", "Expense event (reserved for future use)"],
+    ["backup", "", "Backup event (reserved for future use)"],
+    ["app_update", "", "App update notification (reserved for future use)"],
 ]
 story += hdr_table(
     [[Paragraph(c, make_style("TH",fontSize=9,textColor=WHITE,fontName="Helvetica-Bold")) for c in row] if ri==0
      else [Paragraph(str(c), body_left) for c in row]
      for ri, row in enumerate(notif_types_data)],
     [3.5*cm, 3.5*cm, W - 3*cm - 7*cm],
-    "Table 7.2 — Notification Types"
+    "Table 7.2  Notification Types"
 )
 
 story.append(PB())
 
-# ═══════════════════════════ SECTION 8 — NAVIGATION ═══════════════════════
+# ═══════════════════════════ SECTION 8  NAVIGATION ═══════════════════════
 story.append(P("8. Navigation Structure", h1))
 story += section_rule()
 story.append(P(
@@ -925,7 +925,7 @@ story.append(SP(6))
 
 nav_tree = """app/
 ├── index.tsx                      → Redirects to (Onboarding)/Onboarding1
-├── _layout.tsx                    → Root layout — auth guard + font loading
+├── _layout.tsx                    → Root layout  auth guard + font loading
 │
 ├── (Onboarding)/                  ── PUBLIC ──────────────────────
 │   └── Onboarding1.tsx            → 5s splash → WelcomeScreen
@@ -968,7 +968,7 @@ story += info_box(
 
 story.append(PB())
 
-# ═══════════════════════════ SECTION 9 — STATE MANAGEMENT ═════════════════
+# ═══════════════════════════ SECTION 9  STATE MANAGEMENT ═════════════════
 story.append(P("9. State Management", h1))
 story += section_rule()
 story.append(P(
@@ -979,21 +979,21 @@ story.append(SP(6))
 sm_data = [
     ["Store / Mechanism", "Type", "Data / Keys", "Persistence"],
     ["themeStore", "Zustand", "isDarkMode (bool), themeColor (string), toggleTheme(), setThemeColor()", "In-memory (reset on app restart unless persisted)"],
-    ["taskStore", "Zustand", "tasks array, addTask()", "Placeholder — not actively used in v1.0"],
-    ["useState", "React local state", "All screen-level state (form inputs, loading flags, fetched data)", "None — resets on unmount"],
+    ["taskStore", "Zustand", "tasks array, addTask()", "Placeholder  not actively used in v1.0"],
+    ["useState", "React local state", "All screen-level state (form inputs, loading flags, fetched data)", "None  resets on unmount"],
     ["AsyncStorage", "Key-value store", "businessType, hasCompletedOnboarding", "Persisted to device storage"],
     ["Firebase Auth", "Firebase SDK", "currentUser (uid, phone, etc.)", "Persisted via Firebase's local persistence"],
-    ["Firestore onSnapshot", "Realtime listeners", "products, sales, notifications, user profile", "Realtime — no local caching by default"],
+    ["Firestore onSnapshot", "Realtime listeners", "products, sales, notifications, user profile", "Realtime  no local caching by default"],
 ]
 story += hdr_table(
     [[Paragraph(c, make_style("TH",fontSize=9,textColor=WHITE,fontName="Helvetica-Bold")) for c in row] if ri==0
      else [Paragraph(str(c), body_left) for c in row]
      for ri, row in enumerate(sm_data)],
     [3.5*cm, 2.5*cm, 5.5*cm, W - 3*cm - 11.5*cm],
-    "Table 9.1 — State Management Summary"
+    "Table 9.1  State Management Summary"
 )
 
-# ═══════════════════════════ SECTION 10 — RESPONSIVE DESIGN ═══════════════
+# ═══════════════════════════ SECTION 10  RESPONSIVE DESIGN ═══════════════
 story.append(P("10. Responsive Design &amp; Device Support", h1))
 story += section_rule()
 story.append(P(
@@ -1005,20 +1005,20 @@ scale_data = [
     ["Function", "Formula / Logic", "Use Case"],
     ["scale(size)", "size × (deviceWidth / 375)", "Horizontal dimensions, icon sizes, padding"],
     ["verticalScale(size)", "size × (deviceHeight / 812)", "Vertical dimensions, heights, margins"],
-    ["moderateScale(size, factor)", "size + (scale(size) − size) × factor", "Font sizes — balanced scaling"],
+    ["moderateScale(size, factor)", "size + (scale(size) − size) × factor", "Font sizes  balanced scaling"],
 ]
 story += hdr_table(
     [[Paragraph(c, make_style("TH",fontSize=9,textColor=WHITE,fontName="Helvetica-Bold")) for c in row] if ri==0
      else [Paragraph(str(c), body_left) for c in row]
      for ri, row in enumerate(scale_data)],
     [3.8*cm, 5*cm, W - 3*cm - 8.8*cm],
-    "Table 10.1 — Scaling Functions"
+    "Table 10.1  Scaling Functions"
 )
 
 device_data = [
     ["Device Class", "Width Condition", "Behaviour"],
     ["Small Phone", "width &lt; 375px", "Reduced padding, smaller default font sizes"],
-    ["Medium Phone", "375px ≤ width &lt; 414px", "Standard layout — reference size"],
+    ["Medium Phone", "375px ≤ width &lt; 414px", "Standard layout  reference size"],
     ["Large Phone / Phablet", "414px ≤ width &lt; 768px", "Slightly larger spacing"],
     ["Tablet", "width ≥ 768px", "3-column product grids (vs 2), larger fonts, more padding"],
 ]
@@ -1027,7 +1027,7 @@ story += hdr_table(
      else [Paragraph(str(c), body_left) for c in row]
      for ri, row in enumerate(device_data)],
     [4*cm, 4*cm, W - 3*cm - 8*cm],
-    "Table 10.2 — Device Breakpoints"
+    "Table 10.2  Device Breakpoints"
 )
 
 story.append(P("Design Tokens:", h3))
@@ -1042,12 +1042,12 @@ story += hdr_table(
      else [Paragraph(str(c), body_left) for c in row]
      for ri, row in enumerate(design_tokens)],
     [3.5*cm, 3*cm, W - 3*cm - 6.5*cm],
-    "Table 10.3 — Design Tokens"
+    "Table 10.3  Design Tokens"
 )
 
 story.append(PB())
 
-# ═══════════════════════════ SECTION 11 — FIRESTORE OPS ═══════════════════
+# ═══════════════════════════ SECTION 11  FIRESTORE OPS ═══════════════════
 story.append(P("11. Firebase Backend Operations", h1))
 story += section_rule()
 story.append(P("11.1 Read Operations", h2))
@@ -1065,7 +1065,7 @@ story += hdr_table(
      else [Paragraph(str(c), body_left) for c in row]
      for ri, row in enumerate(read_data)],
     [4*cm, 3*cm, 4.5*cm, W - 3*cm - 11.5*cm],
-    "Table 11.1 — Firestore Read Operations"
+    "Table 11.1  Firestore Read Operations"
 )
 
 story.append(P("11.2 Write Operations", h2))
@@ -1077,7 +1077,7 @@ write_data = [
     ["products/{id}", "deleteDoc", "ProductDetails (on confirm delete)"],
     ["sales", "addDoc", "Checkout, QuickSellScreen"],
     ["sales/{id}", "deleteDoc", "SalesDetailScreen"],
-    ["users/{uid}", "setDoc (merge)", "Profile (first save — creates if absent)"],
+    ["users/{uid}", "setDoc (merge)", "Profile (first save  creates if absent)"],
     ["users/{uid}", "updateDoc", "Profile (subsequent saves)"],
     ["notifications", "addDoc", "notificationHelpers (all helpers)"],
 ]
@@ -1086,7 +1086,7 @@ story += hdr_table(
      else [Paragraph(str(c), body_left) for c in row]
      for ri, row in enumerate(write_data)],
     [5*cm, 3.2*cm, W - 3*cm - 8.2*cm],
-    "Table 11.2 — Firestore Write Operations"
+    "Table 11.2  Firestore Write Operations"
 )
 
 story.append(P("11.3 Firebase Storage Paths", h2))
@@ -1100,12 +1100,12 @@ story += hdr_table(
      else [Paragraph(str(c), body_left) for c in row]
      for ri, row in enumerate(storage_data)],
     [5.5*cm, 4*cm, W - 3*cm - 9.5*cm],
-    "Table 11.3 — Firebase Storage Paths"
+    "Table 11.3  Firebase Storage Paths"
 )
 
 story.append(PB())
 
-# ═══════════════════════════ SECTION 12 — REST API DESIGN ═════════════════
+# ═══════════════════════════ SECTION 12  REST API DESIGN ═════════════════
 story.append(P("12. Recommended REST API Design (Future Migration)", h1))
 story += section_rule()
 story.append(P(
@@ -1179,7 +1179,7 @@ for section_title, rows in api_groups:
 
 story.append(PB())
 
-# ═══════════════════════════ SECTION 13 — SECURITY ════════════════════════
+# ═══════════════════════════ SECTION 13  SECURITY ════════════════════════
 story.append(P("13. Security Notes", h1))
 story += section_rule()
 story.append(P(
@@ -1225,7 +1225,7 @@ story.append(SP(8))
 story.append(P("End of Document", make_style("EndDoc",
     fontSize=11, textColor=HexColor("#888888"), alignment=TA_CENTER,
     fontName="Helvetica-Oblique")))
-story.append(P("Inventra v1.0.0 — Wonderfall Systems © 2025 — Confidential",
+story.append(P("Inventra v1.0.0  Wonderfall Systems © 2025  Confidential",
     make_style("Footer2", fontSize=9, textColor=HexColor("#AAAAAA"), alignment=TA_CENTER, fontName="Helvetica")))
 
 # ── Build ───────────────────────────────────────────────────────────────────

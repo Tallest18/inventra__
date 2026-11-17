@@ -292,30 +292,33 @@ export const styles = StyleSheet.create({
   },
 
   // ── View Cart FAB ────────────────────────────────────────────────────────────
+  // White bar pinned at the bottom with a full-width blue button (design).
   viewCartContainer: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    padding: H_PAD,
-    paddingBottom: verticalScale(isTablet ? 24 : 16),
-    backgroundColor: "#E7EEFA",
+    paddingHorizontal: H_PAD,
+    paddingVertical: 16,
+    paddingBottom: verticalScale(isTablet ? 24 : 18),
+    backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
-    borderTopColor: "#D0D0D0",
+    borderTopColor: "#E5E7EB",
   },
   viewCartButton: {
+    padding:scale(32),
     backgroundColor: "#1155CC",
     borderRadius: moderateScale(12),
-    paddingVertical: verticalScale(14),
+    height: verticalScale(isSmallDevice ? 50 : 56),
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: scale(8),
+    gap: scale(10),
   },
   viewCartButtonText: {
-    color: "white",
+    color: "#FFFFFF",
     fontSize: getFontSize(moderateScale(16)),
-    fontFamily: "DMSans_600SemiBold",
+    fontFamily: "DMSans_400Regular",
   },
   bottomPadding: { height: verticalScale(20) },
 

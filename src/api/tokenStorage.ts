@@ -69,3 +69,19 @@ export async function getLastPhone(): Promise<string | null> {
 export async function clearLastPhone(): Promise<void> {
   await AsyncStorage.removeItem(LAST_PHONE_KEY);
 }
+
+/**
+ * Where a signed-out user belongs: "Welcome Back" (PIN only) when this device
+ * remembers a number, otherwise the phone-number screen that starts sign-up.
+ */
+export async function signedOutRoute(): Promise<
+  "/(Auth)/WelcomeBackScreen" | "/(Auth)/WelcomeScreen"
+> {
+  try {
+    return (await getLastPhone())
+      ? "/(Auth)/WelcomeBackScreen"
+      : "/(Auth)/WelcomeScreen";
+  } catch {
+    return "/(Auth)/WelcomeScreen";
+  }
+}

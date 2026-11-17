@@ -53,7 +53,7 @@ export const RenewalReminderSheet: React.FC<Props> = ({
 
   const title =
     notice.title ?? (isTrial ? "Free Trial Ending Soon" : "Subscription Ending Soon");
-  const banner = notice.banner ?? (label ? `${title} — ${label} left` : title);
+  const banner = notice.banner ?? (label ? `${title} - ${label} left` : title);
   const body =
     notice.body ??
     `Your ${isTrial ? "free trial" : "subscription"} ends in ${label}. Continue using Inventra without interruption by renewing your subscription before it expires.`;

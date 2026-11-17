@@ -1,8 +1,8 @@
+import { AnimatedModal, MODAL_CONTENT_RESET } from "@/components/ui/AnimatedModal";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
   ActivityIndicator,
-  Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -36,13 +36,11 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onConfirm,
   singleButton = false, // DEFAULT TO FALSE
 }) => (
-  <Modal
+  <AnimatedModal
     visible={visible}
-    transparent
-    animationType="fade"
     onRequestClose={onCancel}
   >
-    <View style={styles.overlay}>
+    <View style={[styles.overlay, MODAL_CONTENT_RESET]}>
       <View style={styles.card}>
         <View style={styles.iconWrap}>
           <Ionicons name={iconName} size={24} color={iconColor} />
@@ -73,7 +71,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
         </View>
       </View>
     </View>
-  </Modal>
+  </AnimatedModal>
 );
 
 const styles = StyleSheet.create({

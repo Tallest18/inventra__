@@ -30,7 +30,8 @@ export const AUTH_METRICS = {
   gutter: scale(24),
   sheetRadius: moderateScale(28),
   fieldRadius: moderateScale(14),
-  buttonRadius: moderateScale(28),
+  // Rounded rectangle, same corners as the input fields  not a pill.
+  buttonRadius: moderateScale(14),
   buttonHeight: verticalScale(54),
   fieldHeight: verticalScale(54),
 } as const;

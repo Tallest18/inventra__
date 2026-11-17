@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
-import { Stack, useRouter, useSegments } from "expo-router";
+import { useRouter, useSegments } from "expo-router";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { AnimatedStack, FULL_HEIGHT, PAGE_TRANSITION } from "@/components/navigation/AnimatedStack";
 import * as SplashScreen from "expo-splash-screen";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, Text, TextInput } from "react-native";
@@ -10,6 +12,8 @@ import {
 } from "react-native-safe-area-context";
 
 import { SubscriptionWatcher } from "@/components/auth/SubscriptionWatcher";
+import { BroadcastWatcher } from "@/components/notifications/BroadcastWatcher";
+import { InactivityLockWatcher, recordUserActivity } from "@/components/security/InactivityLockWatcher";
 import { AddProductContext } from "@/context/AddProductContext";
 import type { Product as AddProductModel } from "@/hooks/useAddProductForm";
 import {
@@ -17,6 +21,7 @@ import {
   getAccessToken,
   getProfile,
   parseApiError,
+  signedOutRoute,
 } from "@/src/api";
 import type { OnboardingStatus } from "@/src/api/types";
 import { FONT_ASSETS } from "../constants/fonts";
@@ -28,7 +33,8 @@ SplashScreen.preventAutoHideAsync();
 const SPLASH_MIN_MS = 1800;
 
 type Session =
-  | { status: "signed-out" }
+  // `route` is Welcome Back when the device remembers a number, else sign-up.
+  | { status: "signed-out"; route: string }
   | { status: "signed-in"; onboarding: OnboardingStatus };
 
 /**
@@ -36,7 +42,7 @@ type Session =
  * covering every case: no PIN yet, PIN but no trial, active, or lapsed.
  */
 function destinationFor(session: Session): string {
-  if (session.status === "signed-out") return "/(Auth)/WelcomeScreen";
+  if (session.status === "signed-out") return session.route;
 
   switch (session.onboarding) {
     case "active":
@@ -47,7 +53,7 @@ function destinationFor(session: Session): string {
     case "start_trial":
     case "expired":
     default:
-      // The design has no trial or paywall screen — the subscription gate
+      // The design has no trial or paywall screen  the subscription gate
       // surfaces those states on the first product call instead.
       return "/(Main)/Home";
   }
@@ -55,9 +61,18 @@ function destinationFor(session: Session): string {
 
 export default function AppLayout() {
   return (
-    <SafeAreaProvider>
-      <AppContent />
-    </SafeAreaProvider>
+    // Gesture root: the animated stack's swipe-back needs it on native.
+    <GestureHandlerRootView
+      style={{ flex: 1 }}
+      onStartShouldSetResponderCapture={() => {
+        recordUserActivity();
+        return false;
+      }}
+    >
+      <SafeAreaProvider>
+        <AppContent />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -118,7 +133,8 @@ function AppContent() {
       try {
         const accessToken = await getAccessToken();
         if (!accessToken) {
-          if (!cancelled) setSession({ status: "signed-out" });
+          const route = await signedOutRoute();
+          if (!cancelled) setSession({ status: "signed-out", route });
           return;
         }
         const profile = await getProfile();
@@ -132,7 +148,7 @@ function AppContent() {
         // A 403 is NOT a failed login. /auth/profile/ is gated behind the
         // subscription (despite the docs saying otherwise), so a user who has
         // registered but not started a trial gets one here with a perfectly
-        // valid token. Clearing it would sign them out on every reload —
+        // valid token. Clearing it would sign them out on every reload 
         // precisely the people who should be seeing the blocking trial sheet.
         const info = parseApiError(err);
         const gated =
@@ -152,7 +168,8 @@ function AppContent() {
         }
 
         await clearTokens();
-        if (!cancelled) setSession({ status: "signed-out" });
+        const route = await signedOutRoute();
+        if (!cancelled) setSession({ status: "signed-out", route });
       }
     };
 
@@ -172,7 +189,7 @@ function AppContent() {
     const routerReady = segments.length > 0 && !!segments[0];
 
     // The splash is a real screen in the flow, so hold the redirect until it has
-    // had its moment — otherwise a warm session flashes past it.
+    // had its moment  otherwise a warm session flashes past it.
     if (!fontsReady || !session || !routerReady || !splashElapsed) return;
     if (navigationHandled.current) return;
 
@@ -185,7 +202,7 @@ function AppContent() {
     if (segments[0] !== "(Onboarding)") {
       navigationHandled.current = true;
       if (session.status === "signed-out" && inProtectedGroup) {
-        router.replace("/(Auth)/WelcomeScreen");
+        router.replace(session.route as any);
       }
       return;
     }
@@ -229,43 +246,46 @@ function AppContent() {
       <AddProductContext.Provider
         value={{ openAddProduct, openRestockProduct }}
       >
-        <Stack
+        <AnimatedStack
           screenOptions={{
-            headerShown: false,
-            contentStyle: {
+            ...PAGE_TRANSITION,
+            cardStyle: {
+              ...FULL_HEIGHT,
               paddingTop: Platform.OS === "android" ? insets.top : 0,
               backgroundColor: "#E7EEFA",
             },
           }}
         >
-          <Stack.Screen
+          <AnimatedStack.Screen
             name="(Onboarding)"
             options={{
               headerShown: false,
               // Full-bleed blue splash: drop the global top inset + grey
               // background so the status-bar strip isn't a mismatched colour.
-              contentStyle: { paddingTop: 0, backgroundColor: "#1155CC" },
+              cardStyle: { ...FULL_HEIGHT, paddingTop: 0, backgroundColor: "#1155CC" },
             }}
           />
-          <Stack.Screen
+          <AnimatedStack.Screen
             name="(Auth)"
             options={{
               headerShown: false,
               // Same reason as the splash: the auth screens are full-bleed blue
               // and apply their own top inset, so the global one would be
               // counted twice under a mismatched grey strip.
-              contentStyle: { paddingTop: 0, backgroundColor: "#1155CC" },
+              cardStyle: { ...FULL_HEIGHT, paddingTop: 0, backgroundColor: "#1155CC" },
             }}
           />
-          <Stack.Screen name="(Main)" options={{ headerShown: false }} />
-          <Stack.Screen name="(Routes)" options={{ headerShown: false }} />
-        </Stack>
+          <AnimatedStack.Screen name="(Main)" options={{ headerShown: false }} />
+          <AnimatedStack.Screen name="(Routes)" options={{ headerShown: false }} />
+        </AnimatedStack>
 
         {/* App-wide, so an expiry or reminder surfaces on whatever screen the
             user is on. It self-gates on the stored token rather than on
             `session`, which is resolved once at boot and would still read
             "signed out" straight after a fresh registration. */}
         <SubscriptionWatcher />
+        <BroadcastWatcher />
+        <InactivityLockWatcher />
 
         {/* Mounted only once signed in. ProductFormModal calls useProductsData
             in its component body, so keeping this mounted on the auth screens
