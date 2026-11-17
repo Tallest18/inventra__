@@ -1,8 +1,4 @@
 // hooks/useVoiceSearch.ts
-import {
-  ExpoSpeechRecognitionModule,
-  useSpeechRecognitionEvent,
-} from "expo-speech-recognition";
 import { useCallback, useState } from "react";
 import { Alert } from "react-native";
 
@@ -13,75 +9,20 @@ export function useVoiceSearch({
 }) {
   const [isListening, setIsListening] = useState(false);
 
-  useSpeechRecognitionEvent("start", () => {
-    setIsListening(true);
-  });
-
-  useSpeechRecognitionEvent("end", () => {
-    setIsListening(false);
-  });
-
-  useSpeechRecognitionEvent("speechend", () => {
-    setIsListening(false);
-  });
-
-  useSpeechRecognitionEvent("result", (event) => {
-    const transcript = event.results?.[0]?.transcript;
-    if (transcript) {
-      onTranscript(transcript);
-    }
-  });
-
-  useSpeechRecognitionEvent("error", (event) => {
-    setIsListening(false);
-    if (
-      event.error !== "no-speech" &&
-      event.error !== "aborted" &&
-      event.error !== "speech-timeout"
-    ) {
-      Alert.alert("Voice Search", event.message || "Could not recognize speech.");
-    }
-  });
-
   const startListening = useCallback(async () => {
-    try {
-      const perms = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-      if (!perms.granted) {
-        Alert.alert(
-          "Microphone Permission Required",
-          "Please allow microphone and speech recognition access in your device settings to use voice search."
-        );
-        return;
-      }
-
-      ExpoSpeechRecognitionModule.start({
-        lang: "en-US",
-        interimResults: true,
-        continuous: false,
-      });
-      setIsListening(true);
-    } catch (err: any) {
-      setIsListening(false);
-      Alert.alert("Voice Search", err?.message || "Could not start voice search.");
-    }
+    Alert.alert(
+      "Voice Search",
+      "Voice search is currently unavailable in this build."
+    );
   }, []);
 
   const stopListening = useCallback(() => {
-    try {
-      ExpoSpeechRecognitionModule.stop();
-    } catch {
-      // Ignore stop errors
-    }
     setIsListening(false);
   }, []);
 
   const toggleListening = useCallback(() => {
-    if (isListening) {
-      stopListening();
-    } else {
-      startListening();
-    }
-  }, [isListening, startListening, stopListening]);
+    startListening();
+  }, [startListening]);
 
   return {
     isListening,
@@ -90,4 +31,3 @@ export function useVoiceSearch({
     toggleListening,
   };
 }
-
